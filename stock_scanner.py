@@ -16,10 +16,23 @@ class StockScanner:
         self.start_date = (datetime.datetime.now() - datetime.timedelta(days=365)).strftime('%Y-%m-%d')
 
     def get_krx_symbols(self):
-        """코스피, 코스닥 종목 리스트를 가져옵니다."""
-        df_kospi = fdr.StockListing('KOSPI')
-        df_kosdaq = fdr.StockListing('KOSDAQ')
-        return pd.concat([df_kospi, df_kosdaq])
+        """코스피, 코스닥 종목 리스트를 가져옵니다. (클라우드 환경 호환성 강화)"""
+        try:
+            # Streamlit Cloud 등에서는 KOSPI(Marcap Github) 차단 이슈가 잦으므로 KRX로 통합 조회
+            df_krx = fdr.StockListing('KRX')
+            
+            # Code 컬럼이 없는 경우 대비 (버전 호환)
+            if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
+                df_krx['Code'] = df_krx['Symbol']
+                
+            return df_krx
+        except Exception as e:
+            # 실패 시 예비 수단 (KIND 직접 조회)
+            print(f"KRX 조회 실패, 예비 수단 가동: {e}")
+            df_krx_desc = fdr.StockListing('KRX-DESC')
+            if 'Code' not in df_krx_desc.columns and 'Symbol' in df_krx_desc.columns:
+                df_krx_desc['Code'] = df_krx_desc['Symbol']
+            return df_krx_desc
 
     def get_us_symbols(self):
         """S&P 500 주요 종목 리스트를 가져옵니다."""
