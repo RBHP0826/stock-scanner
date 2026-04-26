@@ -805,19 +805,14 @@ SCORE: {row['score']}
                 df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']]
                 df_display.columns = ['액션', '상태', '코드', '종목명', '점수', '현재가', '등락률', 'RSI', '상세신호']
                 
-                def color_action(val):
-                    if val == 'BUY': return 'background-color: #28a745; color: white'
-                    if val == 'SELL': return 'background-color: #dc3545; color: white'
-                    return ''
-
-                # 키를 고정하거나 최소한으로 변경하여 DOM 충돌 방지
+                # 스타일링이 on_select와 충돌하여 React DOM 에러(removeChild)를 유발할 수 있으므로, 스타일 대신 순수 df를 넘기고 고유 키를 할당합니다.
                 selection_event = st.dataframe(
-                    df_display.style.applymap(color_action, subset=['액션']),
+                    df_display,
                     use_container_width=True,
                     on_select="rerun",
                     selection_mode="single-row",
                     hide_index=True,
-                    key=f"stock_results_table_v3" # 버전 업그레이드
+                    key=f"table_{current_market}_{selected_strategy_name}_{len(df_display)}"
                 )
 
         # --- [3] 행 선택 시 상세 분석 섹션 (Expert Analysis 포함) ---
