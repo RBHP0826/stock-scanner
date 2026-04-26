@@ -1074,13 +1074,14 @@ with tab_portfolio:
                     if val == 'WAIT': return 'background-color: #30363d; color: #8b949e'
                     return ''
 
+                # [버그 픽스] Pandas 2.1 이상에서는 applymap이 제거되어 에러가 발생하며, Streamlit on_select와 스타일링이 충돌(removeChild 에러)하므로 스타일을 제거합니다.
                 selection = st.dataframe(
-                    df_m[display_cols].style.applymap(color_action_v2, subset=['action']),
+                    df_m[display_cols],
                     use_container_width=True,
                     on_select="rerun",
                     selection_mode="multi-row",
                     hide_index=True,
-                    key=f"ptr_table_{m_key}"
+                    key=f"ptr_table_{m_key}_{len(df_m)}"
                 )
                 
                 # [개선] 삭제 UI를 더 명확하게 표시
