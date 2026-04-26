@@ -811,10 +811,30 @@ SCORE: {row['score']}
                     df_display,
                     use_container_width=True,
                     on_select="rerun",
-                    selection_mode="single-row",
+                    selection_mode="multi-row",
                     hide_index=True,
                     key=f"table_{current_market}_{selected_strategy_name}_{len(df_display)}"
                 )
+
+                # 일괄 추가 버튼
+                if selection_event and hasattr(selection_event, 'selection') and selection_event.selection.rows:
+                    selected_rows = selection_event.selection.rows
+                    if len(selected_rows) > 0:
+                        if st.button(f"⭐ 선택한 {len(selected_rows)}개 종목 포트폴리오에 일괄 추가", use_container_width=True, type="primary"):
+                            p_data = load_portfolio()
+                            m_key = 'KR' if "한국" in current_market else ('US' if "미국" in current_market else 'COIN')
+                            added_count = 0
+                            for r_idx in selected_rows:
+                                if r_idx < len(df_filtered):
+                                    sym = str(df_filtered.iloc[r_idx]['symbol'])
+                                    if sym not in p_data[m_key]:
+                                        p_data[m_key].append(sym)
+                                        added_count += 1
+                            if added_count > 0:
+                                save_portfolio(p_data)
+                                st.success(f"{added_count}개 종목이 포트폴리오에 추가되었습니다!")
+                            else:
+                                st.info("이미 포트폴리오에 모두 등록되어 있는 종목들입니다.")
 
         # --- [3] 행 선택 시 상세 분석 섹션 (Expert Analysis 포함) ---
         if selection_event and hasattr(selection_event, 'selection') and selection_event.selection.rows:
