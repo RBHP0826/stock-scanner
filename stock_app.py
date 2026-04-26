@@ -802,7 +802,8 @@ SCORE: {row['score']}
             else:
                 st.info(f"💡 **팁**: 아래 테이블에서 종목을 클릭하면 하단에 상세 차트와 전문가 매매법 분석 결과가 나타납니다. (총 {len(df_filtered)}개)")
                 
-                df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']]
+                df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']].copy()
+                df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
                 df_display.columns = ['액션', '상태', '코드', '종목명', '점수', '현재가', '등락률', 'RSI', '상세신호']
                 
                 # 스타일링이 on_select와 충돌하여 React DOM 에러(removeChild)를 유발할 수 있으므로, 스타일 대신 순수 df를 넘기고 고유 키를 할당합니다.
@@ -1068,15 +1069,13 @@ with tab_portfolio:
                 st.write("**현재 현황** (아래 표에서 종목을 선택하여 복수 삭제가 가능합니다.)")
                 display_cols = ['action', 'action_desc', 'name', 'symbol', 'score', 'current_price', 'rsi', 'signals']
                 
-                def color_action_v2(val):
-                    if val == 'BUY': return 'background-color: #28a745; color: white'
-                    if val == 'SELL': return 'background-color: #dc3545; color: white'
-                    if val == 'WAIT': return 'background-color: #30363d; color: #8b949e'
-                    return ''
+                # [개선] 셀 배경색(styling)은 Streamlit 버그(removeChild)를 유발하므로, 이모지를 활용해 직관적인 색상을 부여합니다.
+                df_m_display = df_m[display_cols].copy()
+                if not df_m_display.empty and 'action' in df_m_display.columns:
+                    df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
 
-                # [버그 픽스] Pandas 2.1 이상에서는 applymap이 제거되어 에러가 발생하며, Streamlit on_select와 스타일링이 충돌(removeChild 에러)하므로 스타일을 제거합니다.
                 selection = st.dataframe(
-                    df_m[display_cols],
+                    df_m_display,
                     use_container_width=True,
                     on_select="rerun",
                     selection_mode="multi-row",
