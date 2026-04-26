@@ -73,10 +73,11 @@ def auto_shutdown_monitor():
         except Exception as e:
             continue
 
-# 자동 종료 스레드 시작
-if 'shutdown_monitor_started' not in st.session_state:
-    st.session_state['shutdown_monitor_started'] = True
-    threading.Thread(target=auto_shutdown_monitor, daemon=True).start()
+# 클라우드 배포를 위해 자동 종료 기능 비활성화
+# if 'shutdown_monitor_started' not in st.session_state:
+#     st.session_state['shutdown_monitor_started'] = True
+#     threading.Thread(target=auto_shutdown_monitor, daemon=True).start()
+
 
 # --- Custom Styling ---
 st.markdown("""
