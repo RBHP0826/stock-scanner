@@ -131,14 +131,40 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+def get_local_ip():
+    """PC의 내부 IP 주소를 가져옵니다."""
+    try:
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(('10.255.255.255', 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return '127.0.0.1'
+
 # --- Configuration Management ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 
 def load_config():
+    """설정 정보를 불러옵니다. (클라우드 Secrets 우선, 로컬 파일 후순위)"""
+    # 1. Streamlit Cloud Secrets 확인 (배포 환경 보안)
+    if hasattr(st, "secrets"):
+        try:
+            return {
+                "telegram_token": st.secrets.get("telegram_token", ""),
+                "telegram_chat_id": st.secrets.get("telegram_chat_id", ""),
+                "auto_send": st.secrets.get("auto_send", False),
+                "custom_url": ""
+            }
+        except:
+            pass
+
+    # 2. 로컬 파일 확인
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, "r") as f:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         except:
             return {"telegram_token": "", "telegram_chat_id": "", "auto_send": False, "custom_url": ""}
@@ -520,50 +546,39 @@ with st.sidebar:
                 st.error(f"오류 발생: {e}")
 
     st.markdown("---")
-    st.subheader("📱 모바일 접속")
+    # 클라우드 환경이 아닐 때만 종료 및 모바일 설정 표시
+    is_cloud = "STREAMLIT_RUNTIME" in os.environ or ".streamlit" in BASE_DIR
     
-    # 모바일용 QR 코드 및 링크 제공
-    def get_local_ip():
-        try:
-            import socket
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.connect(('10.255.255.255', 1))
-            ip = s.getsockname()[0]
-            s.close()
-            return ip
-        except:
-            return '127.0.0.1'
-            
-    local_ip = get_local_ip()
-    
-    # 커스텀 URL이 설정되어 있는지 확인
-    saved_url = config.get("custom_url", "").strip()
-    if saved_url:
-        mobile_url = saved_url
-        # URL 형식 보정 (http/https가 없으면 추가)
-        if not mobile_url.startswith("http"):
-            mobile_url = "http://" + mobile_url
-        msg_desc = "입력하신 전용 네트워크 주소(ngrok 등)로 QR이 생성되었습니다. 외부 어디서든 폰으로 스캔하세요!"
-    else:
-        mobile_url = f"http://{local_ip}:8501"
-        msg_desc = "PC와 동일한 Wi-Fi에 연결된 폰으로 아래 QR을 스캔하세요."
-    
-    st.info(f"💡 **스마트폰으로 편하게 보기:**\n{msg_desc}")
-    
-    # 레이아웃을 이쁘게 배치
-    col_qr1, col_qr2 = st.columns([1, 1])
-    with col_qr1:
-        st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={mobile_url}", width=120)
-    with col_qr2:
-        st.write(" ") # 수직 정렬
-        st.write(" ")
-        st.caption("접속 주소:")
-        st.code(mobile_url, language="text")
+    if not is_cloud:
+        st.markdown("---")
+        st.subheader("📱 모바일 접속")
+        
+        # 모바일용 QR 코드 및 링크 제공
+        local_ip = get_local_ip()
+        saved_url = config.get("custom_url", "").strip()
+        if saved_url:
+            mobile_url = saved_url
+            if not mobile_url.startswith("http"): mobile_url = "http://" + mobile_url
+            msg_desc = "입력하신 전용 네트워크 주소(ngrok 등)로 QR이 생성되었습니다."
+        else:
+            mobile_url = f"http://{local_ip}:8501"
+            msg_desc = "PC와 동일한 Wi-Fi에 연결된 폰으로 스캔하세요."
+        
+        st.info(f"💡 **스마트폰 접속:**\n{msg_desc}")
+        col_qr1, col_qr2 = st.columns([1, 1])
+        with col_qr1:
+            st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={mobile_url}", width=120)
+        with col_qr2:
+            st.caption("주소:")
+            st.code(mobile_url, language="text")
 
-    st.markdown("---")
-    st.subheader("🏁 시스템")
-    if st.button("🚀 프로그램 완전히 종료", help="웹페이지와 터미널(CMD) 창을 모두 닫습니다."):
-        shutdown_app()
+        st.markdown("---")
+        st.subheader("🏁 시스템")
+        if st.button("🚀 프로그램 완전히 종료"):
+            shutdown_app()
+    else:
+        st.markdown("---")
+        st.caption("☁️ 클라우드 배포 모드로 동작 중입니다.")
 
 # 메인 탭 구성
 tab_scan, tab_portfolio = st.tabs(["🔍 종목 스캔", "💼 나의 포트폴리오"])
@@ -572,41 +587,40 @@ with tab_scan:
     st.markdown("### 🔍 시장 종목 스캐너")
     
     # [신규] 개별 종목 직접 검색 섹션
-    search_col1, search_col2 = st.columns([3, 1])
-    with search_col1:
-        search_input = st.text_input("🔍 종목명 또는 코드 검색 (예: 삼성전자, AAPL, 비트코인)", key="direct_search_input").strip()
-    with search_col2:
-        st.write(" ") # 수직 정렬용
-        if st.button("🚀 즉시 분석", use_container_width=True):
-            if search_input:
-                with st.spinner(f"'{search_input}' 정밀 분석 중..."):
-                    # 1. 시장 코드 자동 판별 (코드 직접 입력 대응)
-                    m_code = 'KR'
-                    input_upper = search_input.upper()
-                    if '-' in input_upper: m_code = 'COIN'
-                    elif any(c.isalpha() for c in input_upper): m_code = 'US'
-                    
-                    # 먼저 코드로 분석 시도
-                    analysis = scanner.analyze_stock(input_upper, m_code)
-                    target_symbol = input_upper
-                    
-                    # 2. 코드로 분석 실패 시 이름으로 검색 시도
-                    if not analysis:
-                        found_code, found_market = scanner.find_symbol_by_name(search_input)
-                        if found_code:
-                            target_symbol = found_code
-                            m_code = found_market
-                            analysis = scanner.analyze_stock(target_symbol, m_code)
-                    
-                    if analysis:
-                        analysis['Name'] = scanner.get_symbol_name(target_symbol, m_code)
-                        analysis['market_type'] = m_code
-                        st.session_state['direct_search_result'] = analysis
-                        st.success(f"{analysis['Name']} ({target_symbol}) 분석 완료!")
-                    else:
-                        st.error("종목을 찾을 수 없거나 데이터를 가져오지 못했습니다. 이름이나 코드를 확인해 주세요.")
-            else:
-                st.warning("분석할 종목명 또는 코드를 입력하세요.")
+    st.markdown("#### 🔍 종목 정밀 검색")
+    search_input = st.text_input("🔍 종목명, 코드, 또는 자음 검색 (예: 삼성전자, AAPL, ㅅㅅ, ㅂㅌ)", key="direct_search_input").strip()
+    
+    if search_input:
+        matches = scanner.search_symbols(search_input)
+        if matches:
+            st.write(f"💡 '{search_input}' 검색 결과 ({len(matches)}개):")
+            
+            # 검색 결과 선택
+            cols = st.columns([3, 1])
+            with cols[0]:
+                selected_match = st.selectbox(
+                    "분석할 종목을 선택하세요", 
+                    options=matches, 
+                    format_func=lambda x: x['Display'],
+                    key="selected_search_match"
+                )
+            with cols[1]:
+                st.write(" ") # 수직 정렬
+                if st.button("🚀 즉시 분석", use_container_width=True, key="start_direct_analysis"):
+                    with st.spinner(f"'{selected_match['Name']}' 정밀 분석 중..."):
+                        target_symbol = selected_match['Symbol']
+                        m_code = selected_match['Market']
+                        analysis = scanner.analyze_stock(target_symbol, m_code)
+                        
+                        if analysis:
+                            analysis['Name'] = selected_match['Name']
+                            analysis['market_type'] = m_code
+                            st.session_state['direct_search_result'] = analysis
+                            st.success(f"{analysis['Name']} ({target_symbol}) 분석 완료!")
+                        else:
+                            st.error("데이터를 가져오는 중 오류가 발생했습니다.")
+        else:
+            st.error("일치하는 종목이 없습니다. 검색어를 확인해 주세요.")
 
     if 'direct_search_result' in st.session_state and st.session_state['direct_search_result']:
         s_data = st.session_state['direct_search_result']
@@ -682,10 +696,12 @@ with tab_scan:
         strategies = {
             "전체": df_res,
             "🚀 급등 임박": df_res[df_res['signals'].str.contains("🚀 급등 전조")] if not df_res.empty else df_res,
+            "🏆 캐치(KATCH)": df_res[df_res['signals'].str.contains("캐치")] if not df_res.empty else df_res,
             "🥣 주식단테": df_res[df_res['signals'].str.contains("밥그릇|256")] if not df_res.empty else df_res,
             "📦 고쨱짹": df_res[df_res['signals'].str.contains("고쨱짹")] if not df_res.empty else df_res,
             "🐜 홍인기": df_res[df_res['signals'].str.contains("홍인기|끼")] if not df_res.empty else df_res,
             "🚀 AP-김용재": df_res[df_res['signals'].str.contains("AP-김용재")] if not df_res.empty else df_res,
+            "🌞 데이매매": df_res[df_res['signals'].str.contains("🌞 데이매매")] if not df_res.empty else df_res,
             "✨ 오로라": df_res[df_res.apply(check_aurora, axis=1)] if not df_res.empty else df_res,
             "🏆 퓨처온": df_res[df_res.apply(check_futureon, axis=1)] if not df_res.empty else df_res
         }
@@ -772,6 +788,8 @@ with tab_scan:
                     if row.get("futureon", {}).get("isle"): expert_badges += '<span style="background-color: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🏆 이슬-골드라인</span>'
                     if row.get("futureon", {}).get("shintae"): expert_badges += '<span style="background-color: #8e44ad; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🏆 신태-수급밴드</span>'
                     if row.get("futureon", {}).get("juns"): expert_badges += '<span style="background-color: #e67e22; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🏆 준S-3파동</span>'
+                    if "🌞 데이매매" in row['signals']: expert_badges += '<span style="background-color: #f39c12; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🌞 데이매매</span>'
+                    if "🏆 캐치" in row['signals']: expert_badges += '<span style="background-color: #16a085; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🏆 캐치</span>'
                     
                     st.markdown(f"""
 <div style="background-color: #1a1c24; padding: 15px; border-radius: 10px; border: 2px solid #ff4b4b; box-shadow: 0 0 10px rgba(255, 75, 75, 0.3);">

@@ -4,10 +4,31 @@ import pyupbit
 import pandas as pd
 import datetime
 import numpy as np
+import re
 from ta.momentum import RSIIndicator
 from ta.trend import SMAIndicator
 from ta.volume import OnBalanceVolumeIndicator, MFIIndicator
 from ta.volatility import BollingerBands
+
+# --- 한글 초성 검색용 데이터 ---
+CHOSEONG = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
+
+def get_choseong(text):
+    """문자열에서 한글 초성을 추출합니다."""
+    if not isinstance(text, str): return ""
+    result = ""
+    for char in text:
+        code = ord(char)
+        if 0xAC00 <= code <= 0xD7A3: # 한글 범위
+            result += CHOSEONG[(code - 0xAC00) // 588]
+        else:
+            result += char
+    return result
+
+def is_consonant_only(text):
+    """한글 자음(초성)으로만 구성되어 있는지 확인합니다."""
+    if not text: return False
+    return all('ㄱ' <= char <= 'ㅎ' for char in text)
 
 class StockScanner:
     def __init__(self):
@@ -105,33 +126,93 @@ class StockScanner:
         return symbol
 
     def find_symbol_by_name(self, name):
-        """종목명을 기반으로 심볼과 시장 코드를 찾아 반환합니다."""
+        """종목명을 기반으로 심볼과 시장 코드를 찾아 반환합니다. (초성 검색 지원)"""
         if not name: return None, None
-        name_upper = name.upper()
+        
+        results = self.search_symbols(name)
+        if results:
+            return results[0]['Symbol'], results[0]['Market']
+        return None, None
+
+    def search_symbols(self, query, limit=10):
+        """종목명, 코드, 초성 검색을 통합하여 검색 결과 리스트를 반환합니다."""
+        if not query: return []
+        query_upper = query.upper()
+        query_choseong = get_choseong(query)
+        is_cons = is_consonant_only(query)
+        
+        matches = []
         
         # 1. 한국 시장 검색
         if not hasattr(self, '_krx_list'):
             self._krx_list = self.get_krx_symbols()
-        kr_match = self._krx_list[self._krx_list['Name'].str.upper().str.contains(name_upper, na=False)]
-        if not kr_match.empty:
-            code_col = 'Code' if 'Code' in kr_match.columns else 'Symbol'
-            return kr_match.iloc[0][code_col], 'KR'
+        
+        # 초성 컬럼 추가 (최초 1회)
+        if 'Initials' not in self._krx_list.columns:
+            self._krx_list['Initials'] = self._krx_list['Name'].apply(get_choseong)
             
-        # 2. 미국 시장 검색
-        if not hasattr(self, '_us_list'):
-            self._us_list = self.get_us_symbols()
-        us_match = self._us_list[self._us_list['Name'].str.upper().str.contains(name_upper, na=False)]
-        if not us_match.empty:
-            return us_match.iloc[0]['Symbol'], 'US'
+        # 검색 조건 (이름 포함 OR 코드 포함 OR 초성 일치)
+        kr_df = self._krx_list
+        code_col = 'Code' if 'Code' in kr_df.columns else 'Symbol'
+        
+        if is_cons:
+            # 자음만 입력된 경우 초성 매칭
+            kr_match = kr_df[kr_df['Initials'].str.contains(query, na=False)]
+        else:
+            # 일반 텍스트 입력된 경우 이름 또는 코드 포함 검색
+            kr_match = kr_df[
+                kr_df['Name'].str.upper().str.contains(query_upper, na=False) | 
+                kr_df[code_col].str.upper().str.contains(query_upper, na=False)
+            ]
             
-        # 3. 코인 시장 검색
+        for _, row in kr_match.head(limit).iterrows():
+            matches.append({
+                'Symbol': row[code_col],
+                'Name': row['Name'],
+                'Market': 'KR',
+                'Display': f"🇰🇷 {row['Name']} ({row[code_col]})"
+            })
+            
+        # 2. 코인 시장 검색 (한국어 이름이 있는 경우)
         if not hasattr(self, '_coin_list'):
             self._coin_list = self.get_coin_symbols()
-        coin_match = self._coin_list[self._coin_list['Name'].str.upper().str.contains(name_upper, na=False)]
-        if not coin_match.empty:
-            return coin_match.iloc[0]['Symbol'], 'COIN'
             
-        return None, None
+        if 'Initials' not in self._coin_list.columns:
+            self._coin_list['Initials'] = self._coin_list['Name'].apply(get_choseong)
+            
+        if is_cons:
+            coin_match = self._coin_list[self._coin_list['Initials'].str.contains(query, na=False)]
+        else:
+            coin_match = self._coin_list[
+                self._coin_list['Name'].str.upper().str.contains(query_upper, na=False) |
+                self._coin_list['Symbol'].str.upper().str.contains(query_upper, na=False)
+            ]
+            
+        for _, row in coin_match.head(limit).iterrows():
+            matches.append({
+                'Symbol': row['Symbol'],
+                'Name': row['Name'],
+                'Market': 'COIN',
+                'Display': f"🪙 {row['Name']} ({row['Symbol']})"
+            })
+
+        # 3. 미국 시장 검색 (초성 검색 비대상, 일반 검색만)
+        if not is_cons:
+            if not hasattr(self, '_us_list'):
+                self._us_list = self.get_us_symbols()
+            us_match = self._us_list[
+                self._us_list['Name'].str.upper().str.contains(query_upper, na=False) |
+                self._us_list['Symbol'].str.upper().str.contains(query_upper, na=False)
+            ]
+            for _, row in us_match.head(limit).iterrows():
+                matches.append({
+                    'Symbol': row['Symbol'],
+                    'Name': row['Name'],
+                    'Market': 'US',
+                    'Display': f"🇺🇸 {row['Name']} ({row['Symbol']})"
+                })
+                
+        return matches[:limit]
 
     def analyze_stock(self, symbol, market='KR'):
         """개별 종목/코인의 기술적 지표를 분석하여 점수를 매깁니다."""
@@ -326,6 +407,18 @@ class StockScanner:
                 score += 25
                 signals.extend(juns_msg)
 
+            # M. 🌞 데이매매(Day Trading) 특화 필터
+            day_trade, day_msg = self.check_day_trading_signal(df)
+            if day_trade:
+                score += 45
+                signals.extend(day_msg)
+
+            # N. 🏆 캐치(KATCH) 자동매매 전략 필터
+            katch_signal, katch_msg = self.check_katch_signal(df)
+            if katch_signal:
+                score += 50
+                signals.extend(katch_msg)
+
             return {
                 'symbol': symbol,
                 'current_price': last_price,
@@ -339,7 +432,8 @@ class StockScanner:
                     'dante': dante_bowl or dante_256,
                     'gozack': gozack,
                     'hongingi': hongingi,
-                    'ap_inv': ap_inv
+                    'ap_inv': ap_inv,
+                    'katch': katch_signal
                 },
                 'smart_money': {
                     'accumulation': acc_bar,
@@ -692,6 +786,88 @@ class StockScanner:
         
         if is_above_base and is_wave_up:
             return True, ["🏆 준S 멘토: 20일 기준선 상단 및 우상향 파동 확인"]
+        return False, []
+
+    def check_day_trading_signal(self, df):
+        """실시간 데이매매(Day Trading)에 최적화된 종목을 필터링합니다."""
+        if len(df) < 20: return False, []
+        
+        last = df.iloc[-1]
+        prev = df.iloc[-2]
+        vol = df['Volume']
+        
+        reasons = []
+        
+        # 1. 당일 주도주 여부 (거래대금 확인)
+        # FinanceDataReader의 Volume은 거래량이며, 가격을 곱해 거래대금을 추정합니다.
+        transaction_amount = last['Close'] * last['Volume']
+        is_high_liquidity = transaction_amount >= 5000000000 # 50억 이상
+        
+        # 2. 시가 돌파 및 유지 (Intraday Momentum)
+        # 종가가 시가보다 높고, 양봉의 길이가 일정 수준 이상
+        is_bullish = last['Close'] > last['Open']
+        open_gap = (last['Open'] - prev['Close']) / prev['Close'] * 100
+        change_from_open = (last['Close'] - last['Open']) / last['Open'] * 100
+        
+        # 3. 전일 고가 돌파 (Resistance Break)
+        is_break_prev_high = last['Close'] > prev['High']
+        
+        # 4. 수급 폭발 (전일 거래량 대비 300% 이상 또는 최근 평균 대비 급증)
+        avg_vol_20 = vol.iloc[-21:-1].mean()
+        is_vol_surge = (last['Volume'] > prev['Volume'] * 2.5) or (last['Volume'] > avg_vol_20 * 2.0)
+        
+        # 5. 데이매매 조건 조합
+        # 조건 1: 거래대금이 받쳐주고 + 시가 돌파(양봉) + 수급 터짐
+        if is_high_liquidity and is_bullish and is_vol_surge:
+            if is_break_prev_high:
+                reasons.append("🌞 데이매매: 전일 고가 돌파 및 당일 주도주 포착")
+            else:
+                reasons.append("🌞 데이매매: 수급 유입 및 시가 대비 강세 유지")
+                
+            if open_gap > 0:
+                reasons.append(f"갭 상승({open_gap:.1f}%) 후 추가 상승 모멘텀")
+            
+            reasons.append(f"추정 거래대금 {transaction_amount/100000000:.1f}억 돌파")
+            
+            return True, reasons
+            
+        return False, []
+
+    def check_katch_signal(self, df):
+        """키움증권 캐치(KATCH) 자동매매 조건검색식 로직을 분석합니다."""
+        if len(df) < 60: return False, []
+        
+        last = df.iloc[-1]
+        prev = df.iloc[-2]
+        vol = df['Volume']
+        
+        reasons = []
+        
+        # 1. 이동평균선 정배열 (5 > 20 > 60)
+        ma5 = df['MA5'].iloc[-1]
+        ma20 = df['MA20'].iloc[-1]
+        ma60 = df['MA60'].iloc[-1]
+        is_aligned = ma5 > ma20 > ma60
+        
+        # 2. 수급 폭발 (전일 대비 거래량 200% 이상)
+        is_vol_surge = last['Volume'] > prev['Volume'] * 2.0
+        
+        # 3. 20봉 이내 최고 종가 돌파 (신고가 모멘텀)
+        high_close_20 = df['Close'].iloc[-21:-1].max()
+        is_new_high = last['Close'] > high_close_20
+        
+        # 4. 유동성 필터 (거래대금 50억 이상)
+        transaction_amount = last['Close'] * last['Volume']
+        is_liquid = transaction_amount >= 5000000000
+        
+        # 5. 주가 위치 (당일 시가 대비 상승 중)
+        is_up_from_open = last['Close'] > last['Open']
+        
+        if is_aligned and is_vol_surge and is_new_high and is_liquid and is_up_from_open:
+            reasons.append("🏆 캐치(KATCH): 이평선 정배열 + 수급 폭발 + 20일 신고가 돌파")
+            reasons.append(f"당일 거래대금 약 {transaction_amount/100000000:.1f}억 (주도주급 수급)")
+            return True, reasons
+            
         return False, []
 
     def find_horizontal_levels(self, df, window=120):
