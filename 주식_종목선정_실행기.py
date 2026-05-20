@@ -52,7 +52,7 @@ def start_localtunnel():
                 print(f"\n========================================================")
                 print(f"✅ 외부 접속 주소 발급 완료: {lt_url}")
                 print(f"========================================================\n")
-                send_telegram_msg(msg)
+                # 텔레그램 외부 접속 알림 전송 제외
                 break
     except Exception as e:
         print(f"❌ 외부망 연결 실패: {e}")
@@ -99,10 +99,26 @@ if __name__ == "__main__":
     # 외부 터널링 스레드 시작
     threading.Thread(target=start_localtunnel, daemon=True).start()
     
+    # freethreading(자유 스레딩) 버전의 파이썬(예: python3.14t.exe)은 pandas, numpy 등 C확장 라이브러리와 충돌하여
+    # 메모리 액세스 위반 오류(0xC0000005)를 내고 즉시 강제 종료(Crash)될 가능성이 매우 높습니다.
+    # 따라서 동일 경로에 일반 python.exe가 존재할 경우 이를 우선적으로 사용합니다.
+    python_exe = sys.executable
+    dir_name = os.path.dirname(python_exe)
+    base_name = os.path.basename(python_exe)
+    
+    if "t.exe" in base_name.lower():
+        normal_python = os.path.join(dir_name, "python.exe")
+        if os.path.exists(normal_python):
+            python_exe = normal_python
+        else:
+            normal_python_alt = os.path.join(dir_name, base_name.lower().replace("t.exe", ".exe"))
+            if os.path.exists(normal_python_alt):
+                python_exe = normal_python_alt
+
     try:
         # 포트를 8501로 고정하고, 외부망(터널) 접속 시 화면이 안 뜨거나 무한 로딩되는 현상을 방지하기 위해 CORS와 XSRF 제한을 끕니다.
         subprocess.run([
-            sys.executable, "-m", "streamlit", "run", "stock_app.py", 
+            python_exe, "-m", "streamlit", "run", "stock_app.py", 
             "--server.headless=true", 
             "--server.port=8501",
             "--server.enableCORS=false",
