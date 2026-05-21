@@ -1311,8 +1311,58 @@ with tab_guide:
 
     st.markdown("---")
 
-    # 3. 장중 데이매매(단타) 실전 활용 가이드
-    st.markdown("#### 🌅 3. 장중 데이매매(단타) 실전 활용 가이드")
+    # 4. 실시간 매매 판정 (Action) 가이드
+    st.markdown("#### 🎯 3. 실시간 매매 판정 (Action) 가이드")
+    st.markdown("""
+    <div style="background-color: #1a1c24; padding: 18px; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 20px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.95em; color: #adbac7; text-align: left;">
+            <thead>
+                <tr style="border-bottom: 2px solid #30363d; color: #58a6ff;">
+                    <th style="padding: 10px 5px; width: 22%;">판정 (Action)</th>
+                    <th style="padding: 10px 5px; width: 33%;">세부 설명 (Action Desc)</th>
+                    <th style="padding: 10px 5px; width: 45%;">기술적 판정 조건</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #22272e;">
+                    <td style="padding: 12px 5px;"><span style="background-color: rgba(46, 204, 113, 0.2); color: #2ecc71; padding: 3px 8px; border-radius: 5px; font-weight: bold;">🟢 강력 매수</span></td>
+                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">눌림목 포착 및 적극 매수 권장</td>
+                    <td style="padding: 12px 5px; color: #8b949e;">종합 점수 <b>70점 이상</b>이면서 <br>우상향 내 <b>눌림목(Pullback)</b> 조건에 부합할 때</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #22272e;">
+                    <td style="padding: 12px 5px;"><span style="background-color: rgba(46, 204, 113, 0.15); color: #2ecc71; padding: 3px 8px; border-radius: 5px; font-weight: bold;">🟢 추격 매수 가능</span></td>
+                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">돌파 상승세 진입</td>
+                    <td style="padding: 12px 5px; color: #8b949e;">종합 점수 <b>70점 이상</b>일 때 (추격 매물 돌파 상승)</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #22272e;">
+                    <td style="padding: 12px 5px;"><span style="background-color: rgba(46, 204, 113, 0.1); color: #82e0aa; padding: 3px 8px; border-radius: 5px; font-weight: bold;">🟢 분할 매수 유효</span></td>
+                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">점진적 진입 가능</td>
+                    <td style="padding: 12px 5px; color: #8b949e;">종합 점수 <b>50점 이상 70점 미만</b>일 때</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #22272e;">
+                    <td style="padding: 12px 5px;"><span style="background-color: rgba(231, 76, 60, 0.2); color: #e74c3c; padding: 3px 8px; border-radius: 5px; font-weight: bold;">🔴 과매수 익절 권장</span></td>
+                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">분할 매도 및 수익 실현</td>
+                    <td style="padding: 12px 5px; color: #8b949e;">과열 신호인 <b>RSI 지표가 75 이상</b>으로 치솟았을 때</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #22272e;">
+                    <td style="padding: 12px 5px;"><span style="background-color: rgba(231, 76, 60, 0.15); color: #e74c3c; padding: 3px 8px; border-radius: 5px; font-weight: bold;">🔴 추세 이탈 우려</span></td>
+                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">손절 및 비중 축소 권장</td>
+                    <td style="padding: 12px 5px; color: #8b949e;">종합 점수가 <b>40점 미만</b>이면서 <br>주가가 <b>20일 이평선(MA20) 아래</b>로 내려앉았을 때</td>
+                </tr>
+                <tr>
+                    <td style="padding: 12px 5px;"><span style="background-color: rgba(149, 165, 166, 0.2); color: #95a5a6; padding: 3px 8px; border-radius: 5px; font-weight: bold;">⚫ 관망</span></td>
+                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">대기 및 관망</td>
+                    <td style="padding: 12px 5px; color: #8b949e;">위의 강력한 매수/매도 조건 중 그 어느 것에도 해당하지 않을 때</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # 4. 장중 데이매매(단타) 실전 활용 가이드
+    st.markdown("#### 🚀 4. 장중 데이매매(단타) 실전 활용 가이드")
     
     st.success("💡 데이매매(데이트레이딩)는 당일 매집된 거래대금(돈)이 쏠리는 '대장주'에서 짧게 방망이를 쥐고 대응해야 성공합니다.")
     
