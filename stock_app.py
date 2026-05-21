@@ -581,7 +581,7 @@ with st.sidebar:
         st.caption("☁️ 클라우드 배포 모드로 동작 중입니다.")
 
 # 메인 탭 구성
-tab_scan, tab_portfolio = st.tabs(["🔍 종목 스캔", "💼 나의 포트폴리오"])
+tab_scan, tab_portfolio, tab_guide = st.tabs(["🔍 종목 스캔", "💼 나의 포트폴리오", "💡 사용법 & 알고리즘"])
 
 with tab_scan:
     st.markdown("### 🔍 시장 종목 스캐너")
@@ -1222,7 +1222,138 @@ with tab_portfolio:
                         st.rerun()
             else:
                 st.info(f"등록된 {m_key} 보유 종목이 없습니다.")
+
+with tab_guide:
+    st.markdown("### 💡 종목분석기 사용법 및 알고리즘 완벽 가이드")
+    st.caption("이 대시보드는 기본 기술적 보조지표와 국내 최정상 전문가들의 매매 기법을 결합한 다차원 스코어링 알고리즘으로 작동합니다.")
     
+    st.markdown("---")
+    
+    # 1. 종합 스코어링 시스템 배점표
+    st.markdown("#### 📊 1. 종합 스코어링 시스템 (100점 만점)")
+    st.info("각 종목을 스캔할 때 분석 항목별로 가산점을 부여하며, 최종 점수는 최대 100점으로 제한됩니다.")
+    
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        st.markdown("""
+        <div style="background-color: #1a1c24; padding: 18px; border-radius: 10px; border: 1px solid #30363d; min-height: 290px;">
+            <h5 style="color: #58a6ff; margin-top: 0; font-size: 1.1em;">📈 기본 추세 및 모멘텀 분석</h5>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.95em; color: #adbac7;">
+                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;"><b>정배열 상승 추세 (가격 > 50 > 200)</b></td><td style="text-align: right; color: #2ecc71; font-weight: bold;">+40점</td></tr>
+                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">단기 이평선 상단 위치 (가격 > 50)</td><td style="text-align: right; color: #2ecc71; font-weight: bold;">+20점</td></tr>
+                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;"><b>안정적 상승 모멘텀 (RSI 45 ~ 65)</b></td><td style="text-align: right; color: #2ecc71; font-weight: bold;">+30점</td></tr>
+                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">RSI 저점 매수 유효 구간 (RSI < 45)</td><td style="text-align: right; color: #2ecc71; font-weight: bold;">+10점</td></tr>
+                <tr><td style="padding: 8px 0;"><b>거래량 폭발 (5일 avg vs 20일 avg 1.5배)</b></td><td style="text-align: right; color: #2ecc71; font-weight: bold;">+30점</td></tr>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
+        st.write("")
+        
+    with col_s2:
+        st.markdown("""
+        <div style="background-color: #1a1c24; padding: 18px; border-radius: 10px; border: 1px solid #30363d; min-height: 290px;">
+            <h5 style="color: #ff4b4b; margin-top: 0; font-size: 1.1em;">🚀 급등 전조 및 세력 수급 분석</h5>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.95em; color: #adbac7;">
+                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">거래량 에너지 분출 (20일 avg 2.5배 폭증)</td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+20점</td></tr>
+                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">변동성 응축 (볼린저 밴드 수축)</td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+10점</td></tr>
+                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">3일 연속 상승 캔들 (양봉)</td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+15점</td></tr>
+                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;"><b>추세 내 눌림목(Pullback) 포착</b></td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+20점</td></tr>
+                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">세력 매집 흔적 포착 (OBV 우상향)</td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+15점</td></tr>
+                <tr><td style="padding: 8px 0;">자금 유입 강세 (MFI > 55)</td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+15점</td></tr>
+            </table>
+        </div>
+        """, unsafe_allow_html=True)
+        st.write("")
+
+    st.markdown("---")
+
+    # 2. 7대 전문가 기법 및 기술적 상세 조건
+    st.markdown("#### 🧐 2. 전문가 기법 및 기술적 상세 조건")
+    
+    with st.expander("🥣 주식단테 '밥그릇 패턴' & '256 기법' (종합점수 +25점 / +15점)"):
+        st.markdown("""
+        *   **밥그릇 3번 돌파 패턴 (+25점)**: 
+            *   1년 최고가 대비 30% 이상 폭락한 뒤, 최근 60일간 변동성 10% 내외로 횡보하여 바닥을 다진(밥그릇 2번) 종목이 112일선(장기이평선)을 강력하게 뚫고 올라서는 **추세 전환의 초입 맥점**을 포착합니다.
+        *   **256 스윙 기법 (+15점)**: 
+            *   20일선이 우상향하고 5일선이 20일선 위에 위치(정배열 초입)하며, 현재가가 60일선 위에 위치하여 단기 스윙에 가장 안정적이고 탄력적인 추세를 확인합니다.
+        """)
+        
+    with st.expander("📦 고쨱짹 '박스권 돌파 & 거봉' (종합점수 +30점)"):
+        st.markdown("""
+        *   **원리**: 최근 20거래일 동안의 최고점(박스 상단)을 몸통으로 돌파하면서, 당일 거래량이 20일 평균 거래량의 2.5배를 넘어서는 **'거봉(수급폭발)'**이 뜰 때 포착합니다. 
+        *   **특징**: 지루한 횡보 기간을 끝내고 매물대를 한 번에 소화하며 급등 랠리를 시작하는 강한 모멘텀 돌파 기법입니다.
+        """)
+
+    with st.expander("🐜 대왕개미 홍인기 '대장주 첫 장대양봉 & 끼' (종합점수 +35점)"):
+        st.markdown("""
+        *   **홍인기 D+0 매매법**: 당일 주가 상승률 7% 이상 + 거래량이 20일 평균 대비 300% 이상 폭증 + 60일 최고가를 돌파하는 **"당일 테마의 첫 대장 장대양봉"**을 포착합니다.
+        *   **종목의 끼 분석**: 최근 3개월(60거래일) 내 20% 이상 급등한 이력이나 상한가 도달 이력이 있는 '끼가 많은' 주도주를 골라내어 스윙 및 단타 승률을 극대화합니다.
+        """)
+
+    with st.expander("🚀 AP투자연구소 김용재 소장 '시가/고가 돌파' (종합점수 +30점)"):
+        st.markdown("""
+        *   **원리**: 당일 장중 시가 및 전일 고가를 모두 돌파(Breakout)하면서 거래량이 전일 대비 300% 이상 또는 20일 평균 대비 200% 이상 폭발적으로 들어올 때 감지합니다.
+        *   **특징**: 단기 이평선(5선과 20선)의 이격도가 3% 이내로 수렴한 수렴 구간에서 에너지가 위로 강력 분출되는 시점을 기가 막히게 잡아내어 장 초반 단타 매수 타이밍을 선사합니다.
+        """)
+
+    with st.expander("✨ 오로라 검색기 '낙폭과대 변곡점' (종합점수 +40점)"):
+        st.markdown("""
+        *   **원리**: 단기 급락으로 주가가 엔벨로프 하한선(20일 이동평균선 대비 -20%선) 이하 또는 인근 3% 이내까지 내려앉은 과매도 영역에서 **당일 첫 양봉**과 함께 거래량이 증가하거나 RSI 과매도권(35 이하)을 탈출하는 반등의 변곡점을 잡아냅니다.
+        *   **특징**: 악재나 투매로 과하게 밀린 우량주 및 주도 테마주가 기술적으로 강력한 반등을 줄 때, 바닥의 꼬리를 낚아채는 매수 급소 전략입니다.
+        """)
+
+    with st.expander("🏆 퓨처온 멘토 군단 (이슬/신태/준S) 매매법 (각 +25점)"):
+        st.markdown("""
+        *   **이슬 멘토 (골드라인 매매법)**: 황금 지수평균선인 EMA 33선 위에 캔들이 안착하고 골드라인이 우상향할 때 지지 매수 관점을 갖습니다.
+        *   **신태 멘토 (NS밴드 지지)**: 볼린저 밴드 하단 부근에 캔들 꼬리가 접촉하고, 당일 양봉을 그리며 20일 평균 거래량의 1.2배를 초과하는 수급이 들어올 때의 매수 맥점입니다.
+        *   **준S 멘토 (3파동 저점 상승)**: 20일 기준선 위에서 주가가 놀고 있으면서, 최근 60거래일 동안 3개의 유의미한 단기 저점들이 점점 높아지는 우상향 엘리어트 파동의 초입을 포착합니다.
+        """)
+
+    st.markdown("---")
+
+    # 3. 장중 데이매매(단타) 실전 활용 가이드
+    st.markdown("#### 🌅 3. 장중 데이매매(단타) 실전 활용 가이드")
+    
+    st.success("💡 데이매매(데이트레이딩)는 당일 매집된 거래대금(돈)이 쏠리는 '대장주'에서 짧게 방망이를 쥐고 대응해야 성공합니다.")
+    
+    col_d1, col_d2 = st.columns(2)
+    with col_d1:
+        st.markdown("""
+        <div style="background-color: #1a1c24; padding: 18px; border-radius: 10px; border: 1px solid #30363d; min-height: 250px;">
+            <h5 style="color: #f1c40f; margin-top: 0; font-size: 1.1em;">⏰ 장중 시간대별 매매 시나리오</h5>
+            <ul style="color: #adbac7; padding-left: 20px; font-size: 0.95em; line-height: 1.6;">
+                <li><b>[09:00 ~ 09:30] 시가 돌파 타점</b>
+                    <br><small style="color: #8b949e;">- <b>'AP-김용재 소장 매매법'</b> 신호가 발생하고 거래량이 폭증하는 종목 공략 (목표가 2~4% 내외 청산)</small>
+                </li>
+                <li style="margin-top: 10px;"><b>[09:30 ~ 11:30] 시장 주도주 공략</b>
+                    <br><small style="color: #8b949e;">- <b>'홍인기 D+0'</b> 및 <b>'고쨱짹 박스돌파'</b> 신호가 뜬 대장주가 눌렸다가 지지받는 눌림목에서 분할 매수</small>
+                </li>
+                <li style="margin-top: 10px;"><b>[13:00 ~ 15:00] 낙폭과대 변곡점 공략</b>
+                    <br><small style="color: #8b949e;">- <b>'오로라 검색기'</b> 신호가 뜬 종목 중 지지받고 5분봉 첫 양봉을 그리는 종목 분할 매수</small>
+                </li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col_d2:
+        st.markdown("""
+        <div style="background-color: #1a1c24; padding: 18px; border-radius: 10px; border: 1px solid #30363d; min-height: 250px;">
+            <h5 style="color: #e74c3c; margin-top: 0; font-size: 1.1em;">🚨 단타 매매 3대 필수 원칙</h5>
+            <ol style="color: #adbac7; padding-left: 20px; font-size: 0.95em; line-height: 1.7;">
+                <li><b>종합 스코어 70점 이상만 선택</b>
+                    <br><small style="color: #8b949e;">- 거래대금과 힘이 증명되지 않은 종목은 절대 단타로 진입하지 않습니다.</small>
+                </li>
+                <li style="margin-top: 10px;"><b>분봉 차트 및 호가창 병행</b>
+                    <br><small style="color: #8b949e;">- 본 분석기로 주도 종목을 먼저 발굴한 뒤, 진입/청산 타점은 1분봉/3분봉 차트와 매수-매도 잔량 호가창을 함께 보며 잡습니다.</small>
+                </li>
+                <li style="margin-top: 10px;"><b>기계적인 손절 대응</b>
+                    <br><small style="color: #8b949e;">- 예측이 틀려 분봉상의 당일 시가나 최근 지지선을 이탈하면 <b>-1.5% ~ -2% 내외</b>에서 즉시 손절을 집행합니다.</small>
+                </li>
+            </ol>
+        </div>
+        """, unsafe_allow_html=True)
+        st.write("")
+
 # Footer
 st.divider()
 st.caption(f"Last sync: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Data source: FinanceDataReader, yfinance")
