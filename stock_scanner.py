@@ -926,6 +926,108 @@ class StockScanner:
             df = self.add_indicators(df)
         return df
 
+    def calculate_whale_analysis(self, symbol, market='KR'):
+        """
+        특정 종목의 세력 평단가, 매수/매도 타점, 손절가를 계산하여 딕셔너리로 반환합니다.
+        """
+        import numpy as np
+        # 1. 1년치 역사적 데이터 로드 및 기술적 지표 생성
+        df = self.get_historical_data(symbol, market, days=365)
+        if df is None or len(df) < 20:
+            return None
+            
+        # 2. 거래량 급증일 필터링 (최근 120일 기준)
+        period = min(120, len(df))
+        recent_df = df.iloc[-period:].copy()
+        
+        # 20일 평균 거래량
+        window_size = min(20, len(recent_df))
+        recent_df['MA20_Vol'] = recent_df['Volume'].rolling(window=window_size).mean().bfill()
+        
+        # Typical Price 계산 (High + Low + Close) / 3
+        recent_df['Typical_Price'] = (recent_df['High'] + recent_df['Low'] + recent_df['Close']) / 3
+        
+        # 20일 평균 거래량의 1.8배 초과일 = 세력 개입일
+        whale_days = recent_df[recent_df['Volume'] > recent_df['MA20_Vol'] * 1.8]
+        
+        # 만약 조건에 맞는 날이 없으면 거래량 상위 15% 날을 세력 개입일로 정의 (방어로직)
+        if len(whale_days) < 3:
+            top_vol_threshold = recent_df['Volume'].quantile(0.85)
+            whale_days = recent_df[recent_df['Volume'] >= top_vol_threshold]
+            
+        # 3. 단기(20일), 중기(60일), 장기(120일) 세력평단가(VWAP) 계산
+        def calc_vwap(sub_df):
+            if sub_df.empty:
+                return recent_df['Close'].iloc[-1]
+            try:
+                val = (sub_df['Typical_Price'] * sub_df['Volume']).sum() / sub_df['Volume'].sum()
+                if np.isnan(val) or np.isinf(val):
+                    return recent_df['Close'].iloc[-1]
+                return val
+            except:
+                return recent_df['Close'].iloc[-1]
+                
+        # 단기: 최근 20거래일 중 수급폭증일 대상
+        sub_short = whale_days[whale_days.index >= recent_df.index[-min(20, len(recent_df))]]
+        price_whale_short = calc_vwap(sub_short)
+        
+        # 중기: 최근 60거래일 중 수급폭증일 대상
+        sub_mid = whale_days[whale_days.index >= recent_df.index[-min(60, len(recent_df))]]
+        price_whale_mid = calc_vwap(sub_mid)
+        
+        # 장기: 최근 120거래일(전체) 중 수급폭증일 대상
+        price_whale_long = calc_vwap(whale_days)
+        
+        current_price = recent_df['Close'].iloc[-1]
+        
+        # 4. 지지/저항 및 매수/매도 타점 도출
+        levels = self.horizontal_levels if hasattr(self, 'horizontal_levels') else []
+        
+        # 매수 타점 밴드
+        buy_zone_lower = price_whale_mid * 0.98
+        buy_zone_upper = price_whale_mid * 1.03
+        
+        # 돌파 매수 타점 (최근 20일 고가)
+        breakout_point = recent_df['High'].iloc[-min(20, len(recent_df)):].max()
+        
+        # 목표가 & 손절가 계산 (기본 비율)
+        target_price_1 = price_whale_mid * 1.15
+        target_price_2 = price_whale_mid * 1.30
+        stop_loss = price_whale_long * 0.93 # 장기 평단가 대비 -7%
+        
+        # 수평 저항선이 목표가 근처에 있으면 보정
+        near_resistances = [l for l in levels if l > current_price]
+        if near_resistances:
+            target_price_1 = min(near_resistances[0], target_price_1)
+            if target_price_1 <= current_price * 1.02:
+                target_price_1 = price_whale_mid * 1.15
+            
+            if len(near_resistances) > 1:
+                target_price_2 = min(near_resistances[1], target_price_2)
+                if target_price_2 <= target_price_1:
+                    target_price_2 = target_price_1 * 1.15
+        
+        # 손익비 (Risk-Reward Ratio) 계산
+        risk = max(1, current_price - stop_loss)
+        reward = max(1, target_price_1 - current_price)
+        rr_ratio = reward / risk if risk > 0 else 0.0
+        
+        return {
+            'symbol': symbol,
+            'current_price': current_price,
+            'short_term_basis': price_whale_short,
+            'mid_term_basis': price_whale_mid,
+            'long_term_basis': price_whale_long,
+            'buy_zone': (buy_zone_lower, buy_zone_upper),
+            'breakout_point': breakout_point,
+            'target_price_1': target_price_1,
+            'target_price_2': target_price_2,
+            'stop_loss': stop_loss,
+            'rr_ratio': rr_ratio,
+            'whale_activity_count': len(whale_days),
+            'df': df
+        }
+
 if __name__ == "__main__":
     scanner = StockScanner()
     # 테스트 실행
