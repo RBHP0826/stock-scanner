@@ -197,32 +197,70 @@ st.markdown("""
     @media (max-width: 768px) {
         /* 전체 화면 좌우상하 여백을 줄여서 스마트폰 화면을 넓게 사용 */
         .block-container {
-            padding-top: 1.5rem !important;
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-            padding-bottom: 1.5rem !important;
+            padding-top: 1.0rem !important;
+            padding-left: 0.3rem !important;
+            padding-right: 0.3rem !important;
+            padding-bottom: 1.0rem !important;
         }
         
         /* 큰 텍스트(제목) 크기를 모바일에 맞게 축소하여 줄바꿈 최소화 */
-        h1 { font-size: 1.6rem !important; }
-        h2 { font-size: 1.3rem !important; }
-        h3 { font-size: 1.1rem !important; }
+        h1 { font-size: 1.4rem !important; }
+        h2 { font-size: 1.15rem !important; }
+        h3 { font-size: 1.0rem !important; }
         
         /* 터치하기 편하도록 버튼 요소들의 세로 길이를 살짝 늘리고 크기 조정 */
         .stButton > button {
             width: 100% !important;
-            min-height: 50px !important;
+            min-height: 44px !important;
             margin-bottom: 5px;
+            font-size: 0.85rem !important;
+            padding: 8px 12px !important;
         }
         
         /* 모바일에서는 표(DataFrame) 안의 글자 크기를 줄여 한눈에 많은 정보가 들어오도록 함 */
         [data-testid="stDataFrame"] {
-            font-size: 0.75rem !important;
+            font-size: 0.70rem !important;
         }
         
-        /* 라디오 버튼(필터링 선택 등) 레이아웃 글씨 축소 */
+        /* 라디오 버튼(필터링 선택 등) 레이아웃 글씨 축소 및 가로 배치 최적화 */
+        .stRadio > div {
+            gap: 6px !important;
+        }
         .stRadio > div > label {
-            font-size: 0.8rem !important;
+            font-size: 0.75rem !important;
+            padding: 4px 8px !important;
+        }
+
+        /* 탭 메뉴 디자인 모바일용 초컴팩트화 */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 4px !important;
+            padding: 3px 6px !important;
+        }
+        .stTabs [data-baseweb="tab"] {
+            height: 32px !important;
+            font-size: 0.75rem !important;
+            padding: 0 8px !important;
+        }
+
+        /* 모바일에서 거시경제 지표 카드 컴팩트화 */
+        div[style*="backdrop-filter: blur(10px)"] {
+            padding: 6px 8px !important;
+            margin-bottom: 8px !important;
+        }
+        div[style*="backdrop-filter: blur(10px)"] > div {
+            font-size: 0.7rem !important;
+        }
+
+        /* 모바일에서 메트릭 카드 글씨 크기 줄이기 */
+        div[style*="backdrop-filter: blur(16px)"] {
+            padding: 10px 14px !important;
+            margin-bottom: 10px !important;
+        }
+        div[style*="backdrop-filter: blur(16px)"] > div > span {
+            font-size: 0.75em !important;
+        }
+        div[style*="backdrop-filter: blur(16px)"] > div[style*="font-size: 2.1em"] {
+            font-size: 1.5em !important;
         }
     }
     </style>
@@ -1150,6 +1188,10 @@ def plot_chart(df, symbol, name):
 # --- 공통 사이드바 설정 ---
 with st.sidebar:
     st.header("⚙️ 설정")
+    
+    # [모바일 최적화] 모바일 간소화 뷰 토글 스위치 (기본값 True)
+    mobile_view = st.toggle("📱 모바일 간소화 모드", value=True, help="활성화하면 모바일 화면에서 스크롤을 길게 만드는 대형 차트와 세부 분석을 자동으로 접어 스크롤 압박을 줄입니다.")
+    
     market_choice = st.radio("분석 시장 선택", ["한국 (KRX)", "미국 (US)", "암호화폐 (Upbit)"])
     
     # 시장 선택 변경 시 이전 결과 초기화
@@ -1315,16 +1357,19 @@ with tab_scan:
         with st.expander(f"📌 {s_data['Name']} ({s_data['symbol']}) 검색 결과 (클릭하여 닫기)", expanded=True):
             st.markdown(f"#### 🛰️ {s_data['Name']} 실시간 기술적 상태")
             
-            s_col1, s_col2 = st.columns([2, 1])
-            with s_col1:
-                display_detailed_chart(s_data['symbol'], s_data['market_type'])
-            with s_col2:
+            # 모바일 뷰 분기
+            if mobile_view:
+                # 차트를 expander로 감싸서 숨겨둠으로써 스크롤 감소
+                with st.expander("📈 실시간 정밀 차트 보기", expanded=False):
+                    display_detailed_chart(s_data['symbol'], s_data['market_type'])
+                
                 score_val = s_data['score']
                 score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
                 price_suffix = "원" if s_data['market_type'] != 'US' else "달러"
                 
                 st.markdown(render_premium_metric("현재가", f"{s_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
                 st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
+                
                 st.markdown("##### 📡 실시간 감지 신호")
                 st.markdown(render_premium_signals(s_data['signals']), unsafe_allow_html=True)
                 
@@ -1339,6 +1384,31 @@ with tab_scan:
                         save_portfolio(p_data)
                         st.success("포트폴리오에 등록되었습니다!")
                     else: st.warning("이미 등록된 종목입니다.")
+            else:
+                s_col1, s_col2 = st.columns([2, 1])
+                with s_col1:
+                    display_detailed_chart(s_data['symbol'], s_data['market_type'])
+                with s_col2:
+                    score_val = s_data['score']
+                    score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
+                    price_suffix = "원" if s_data['market_type'] != 'US' else "달러"
+                    
+                    st.markdown(render_premium_metric("현재가", f"{s_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
+                    st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
+                    st.markdown("##### 📡 실시간 감지 신호")
+                    st.markdown(render_premium_signals(s_data['signals']), unsafe_allow_html=True)
+                    
+                    st.markdown("##### 💡 전문가 의견")
+                    st.markdown(render_premium_expert_opinion(s_data['action'], s_data['action_desc']), unsafe_allow_html=True)
+                    
+                    if st.button("⭐ 검색 종목 포트폴리오 추가", key="add_search_portfolio", use_container_width=True):
+                        p_data = load_portfolio()
+                        m_key = s_data['market_type']
+                        if s_data['symbol'] not in p_data[m_key]:
+                            p_data[m_key].append(s_data['symbol'])
+                            save_portfolio(p_data)
+                            st.success("포트폴리오에 등록되었습니다!")
+                        else: st.warning("이미 등록된 종목입니다.")
             
             if st.button("❌ 검색 결과 지우기", use_container_width=True):
                 del st.session_state['direct_search_result']
@@ -1560,9 +1630,16 @@ with tab_scan:
             else:
                 st.info(f"💡 **팁**: 아래 테이블에서 종목을 클릭하면 하단에 상세 차트와 전문가 매매법 분석 결과가 나타납니다. (총 {len(df_filtered)}개)")
                 
-                df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']].copy()
-                df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
-                df_display.columns = ['액션', '상태', '코드', '종목명', '점수', '현재가', '등락률', 'RSI', '상세신호']
+                if mobile_view:
+                    # 모바일 최적화: 가로 폭이 좁은 모바일을 위해 핵심 4개 컬럼만 제공
+                    df_display = df_filtered[['action', 'Name', 'score', 'change_rate']].copy()
+                    df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
+                    df_display.columns = ['액션', '종목명', '점수', '등락률']
+                else:
+                    # PC 환경: 전체 9개 컬럼 상세 정보 제공
+                    df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']].copy()
+                    df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
+                    df_display.columns = ['액션', '상태', '코드', '종목명', '점수', '현재가', '등락률', 'RSI', '상세신호']
                 
                 # 스타일링이 on_select와 충돌하여 React DOM 에러(removeChild)를 유발할 수 있으므로, 스타일 대신 순수 df를 넘기고 고유 키를 할당합니다.
                 selection_event = st.dataframe(
@@ -1606,41 +1683,38 @@ with tab_scan:
                 
                 st.markdown(f"### 📈 {selected_data['Name']} ({selected_symbol}) 정밀 분석")
                 
-                # 전문가 기법 해당 여부 확인 섹션 (강조)
-                st.markdown("#### 🧐 전문가 기법 및 수급 확인")
-                st.markdown(render_premium_strategy_grid(selected_data), unsafe_allow_html=True)
-                
-                expert_reasons = []
-                if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'):
-                    for r in selected_data['aurora']['reasons']:
-                        expert_reasons.append(f"✨ **오로라**: {r}")
-                if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
-                    for r in selected_data['futureon']['reasons']:
-                        expert_reasons.append(f"🏆 **퓨처온**: {r}")
-                
-                if expert_reasons:
-                    with st.expander("📝 기술적 분석 상세 근거 확인", expanded=True):
-                        for reason in expert_reasons:
-                            st.caption(reason)
-
-                col_chart, col_side = st.columns([2, 1])
-                with col_chart:
-                    display_detailed_chart(selected_symbol, current_market)
-                
-                with col_side:
+                if mobile_view:
+                    # 모바일 최적화: 스크롤 단축을 위해 전문가 기법과 차트를 접은 상태로 제공
+                    with st.expander("🧐 전문가 기법 및 수급 확인 (클릭하여 펼치기)", expanded=False):
+                        st.markdown(render_premium_strategy_grid(selected_data), unsafe_allow_html=True)
+                        expert_reasons = []
+                        if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'):
+                            for r in selected_data['aurora']['reasons']:
+                                expert_reasons.append(f"✨ **오로라**: {r}")
+                        if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
+                            for r in selected_data['futureon']['reasons']:
+                                expert_reasons.append(f"🏆 **퓨처온**: {r}")
+                        if expert_reasons:
+                            for reason in expert_reasons:
+                                st.caption(reason)
+                    
+                    with st.expander("📈 실시간 정밀 차트 보기", expanded=False):
+                        display_detailed_chart(selected_symbol, current_market)
+                    
                     score_val = selected_data['score']
                     score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
                     price_suffix = "원" if current_market != '미국 (US)' else "달러"
                     
                     st.markdown(render_premium_metric("현재가", f"{selected_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
                     st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
+                    
                     st.markdown("##### 📡 실시간 감지 신호")
                     st.markdown(render_premium_signals(selected_data['signals']), unsafe_allow_html=True)
                     
                     st.markdown("##### 💡 전문가 의견")
                     st.markdown(render_premium_expert_opinion(selected_data['action'], selected_data['action_desc']), unsafe_allow_html=True)
                     
-                    if st.button("⭐ 포트폴리오에 추가", use_container_width=True):
+                    if st.button("⭐ 포트폴리오에 추가", use_container_width=True, key="add_to_portfolio_mobile"):
                         p_data = load_portfolio()
                         m_key = 'KR' if "한국" in current_market else ('US' if "미국" in current_market else 'COIN')
                         if selected_symbol not in p_data[m_key]:
@@ -1649,6 +1723,50 @@ with tab_scan:
                             st.success("추가되었습니다!")
                             st.rerun()
                         else: st.warning("이미 등록된 종목입니다.")
+                else:
+                    # PC 환경: 전체 정보 즉시 노출
+                    st.markdown("#### 🧐 전문가 기법 및 수급 확인")
+                    st.markdown(render_premium_strategy_grid(selected_data), unsafe_allow_html=True)
+                    
+                    expert_reasons = []
+                    if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'):
+                        for r in selected_data['aurora']['reasons']:
+                            expert_reasons.append(f"✨ **오로라**: {r}")
+                    if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
+                        for r in selected_data['futureon']['reasons']:
+                            expert_reasons.append(f"🏆 **퓨처온**: {r}")
+                    
+                    if expert_reasons:
+                        with st.expander("📝 기술적 분석 상세 근거 확인", expanded=True):
+                            for reason in expert_reasons:
+                                st.caption(reason)
+
+                    col_chart, col_side = st.columns([2, 1])
+                    with col_chart:
+                        display_detailed_chart(selected_symbol, current_market)
+                    
+                    with col_side:
+                        score_val = selected_data['score']
+                        score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
+                        price_suffix = "원" if current_market != '미국 (US)' else "달러"
+                        
+                        st.markdown(render_premium_metric("현재가", f"{selected_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
+                        st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
+                        st.markdown("##### 📡 실시간 감지 신호")
+                        st.markdown(render_premium_signals(selected_data['signals']), unsafe_allow_html=True)
+                        
+                        st.markdown("##### 💡 전문가 의견")
+                        st.markdown(render_premium_expert_opinion(selected_data['action'], selected_data['action_desc']), unsafe_allow_html=True)
+                        
+                        if st.button("⭐ 포트폴리오에 추가", use_container_width=True):
+                            p_data = load_portfolio()
+                            m_key = 'KR' if "한국" in current_market else ('US' if "미국" in current_market else 'COIN')
+                            if selected_symbol not in p_data[m_key]:
+                                p_data[m_key].append(selected_symbol)
+                                save_portfolio(p_data)
+                                st.success("추가되었습니다!")
+                                st.rerun()
+                            else: st.warning("이미 등록된 종목입니다.")
 
         # --- 공유 및 하단 섹션 ---
         st.markdown("---")
@@ -1967,15 +2085,19 @@ with tab_whale:
         ), row=2, col=1)
         
         c_fig.update_layout(
-            height=700, 
+            height=450 if mobile_view else 700, # 모바일일 경우 차트 높이를 적절히 조절
             template="plotly_dark", 
             showlegend=True, 
             xaxis_rangeslider_visible=False, 
-            margin=dict(l=10, r=10, t=40, b=10),
+            margin=dict(l=5, r=5, t=30, b=5),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         
-        st.plotly_chart(c_fig, use_container_width=True)
+        if mobile_view:
+            with st.expander("📈 세력 매매 타점 차트 펼치기 (터치)", expanded=False):
+                st.plotly_chart(c_fig, use_container_width=True)
+        else:
+            st.plotly_chart(c_fig, use_container_width=True)
         
         # 5. 세력 지표 요약 진단표
         st.markdown("#### 🕵️ 세력 매집 시그널 종합 판정표")
@@ -2145,12 +2267,21 @@ with tab_portfolio:
                 
                 # 데이터 그리드 (다중 선택 활성화)
                 st.write("**현재 현황** (아래 표에서 종목을 선택하여 복수 삭제가 가능합니다.)")
-                display_cols = ['action', 'action_desc', 'name', 'symbol', 'score', 'current_price', 'rsi', 'signals']
                 
-                # [개선] 셀 배경색(styling)은 Streamlit 버그(removeChild)를 유발하므로, 이모지를 활용해 직관적인 색상을 부여합니다.
-                df_m_display = df_m[display_cols].copy()
-                if not df_m_display.empty and 'action' in df_m_display.columns:
-                    df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
+                if mobile_view:
+                    # 모바일용 컴팩트 컬럼
+                    display_cols = ['action', 'name', 'score', 'current_price']
+                    df_m_display = df_m[display_cols].copy()
+                    if not df_m_display.empty and 'action' in df_m_display.columns:
+                        df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
+                    df_m_display.columns = ['액션', '종목명', '점수', '현재가']
+                else:
+                    # PC용 전체 컬럼
+                    display_cols = ['action', 'action_desc', 'name', 'symbol', 'score', 'current_price', 'rsi', 'signals']
+                    df_m_display = df_m[display_cols].copy()
+                    if not df_m_display.empty and 'action' in df_m_display.columns:
+                        df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
+                    df_m_display.columns = ['액션', '상태', '종목명', '코드', '점수', '현재가', 'RSI', '상세신호']
 
                 selection = st.dataframe(
                     df_m_display,
@@ -2194,39 +2325,70 @@ with tab_portfolio:
                         st.markdown("---")
                         st.markdown(f"### 📈 {selected_data['name']} ({selected_symbol}) 정밀 분석")
                         
-                        # 전문가 기법 해당 여부 확인 섹션 (강조)
-                        st.markdown("#### 🧐 전문가 기법 및 수급 확인")
-                        st.markdown(render_premium_strategy_grid(selected_data), unsafe_allow_html=True)
-                        
-                        expert_reasons = []
-                        if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'):
-                            for r in selected_data['aurora']['reasons']:
-                                expert_reasons.append(f"✨ **오로라**: {r}")
-                        if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
-                            for r in selected_data['futureon']['reasons']:
-                                expert_reasons.append(f"🏆 **퓨처온**: {r}")
-                        
-                        if expert_reasons:
-                            with st.expander("📝 기술적 분석 상세 근거 확인", expanded=True):
-                                for reason in expert_reasons:
-                                    st.caption(reason)
-
-                        col_chart, col_side = st.columns([2, 1])
-                        with col_chart:
-                            display_detailed_chart(selected_symbol, m_key)
-                        
-                        with col_side:
+                        if mobile_view:
+                            # 모바일 최적화: 전문가 매매법과 차트를 expander 내부로 수납하여 접어둠
+                            with st.expander("🧐 전문가 기법 및 수급 확인 (클릭하여 펼치기)", expanded=False):
+                                st.markdown(render_premium_strategy_grid(selected_data), unsafe_allow_html=True)
+                                expert_reasons = []
+                                if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'):
+                                    for r in selected_data['aurora']['reasons']:
+                                        expert_reasons.append(f"✨ **오로라**: {r}")
+                                if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
+                                    for r in selected_data['futureon']['reasons']:
+                                        expert_reasons.append(f"🏆 **퓨처온**: {r}")
+                                if expert_reasons:
+                                    for reason in expert_reasons:
+                                        st.caption(reason)
+                            
+                            with st.expander("📈 실시간 정밀 차트 보기", expanded=False):
+                                display_detailed_chart(selected_symbol, m_key)
+                                
                             score_val = selected_data['score']
                             score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
                             price_suffix = "원" if m_key != 'US' else "달러"
                             
                             st.markdown(render_premium_metric("현재가", f"{selected_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
                             st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
+                            
                             st.markdown("##### 📡 실시간 감지 신호")
                             st.markdown(render_premium_signals(selected_data['signals']), unsafe_allow_html=True)
                             
                             st.markdown("##### 💡 전문가 의견")
                             st.markdown(render_premium_expert_opinion(selected_data['action'], selected_data['action_desc']), unsafe_allow_html=True)
+                        else:
+                            # PC 환경: 모든 정보 즉시 상세 노출
+                            st.markdown("#### 🧐 전문가 기법 및 수급 확인")
+                            st.markdown(render_premium_strategy_grid(selected_data), unsafe_allow_html=True)
+                            
+                            expert_reasons = []
+                            if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'):
+                                for r in selected_data['aurora']['reasons']:
+                                    expert_reasons.append(f"✨ **오로라**: {r}")
+                            if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
+                                for r in selected_data['futureon']['reasons']:
+                                    expert_reasons.append(f"🏆 **퓨처온**: {r}")
+                            
+                            if expert_reasons:
+                                with st.expander("📝 기술적 분석 상세 근거 확인", expanded=True):
+                                    for reason in expert_reasons:
+                                        st.caption(reason)
+
+                            col_chart, col_side = st.columns([2, 1])
+                            with col_chart:
+                                display_detailed_chart(selected_symbol, m_key)
+                            
+                            with col_side:
+                                score_val = selected_data['score']
+                                score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
+                                price_suffix = "원" if m_key != 'US' else "달러"
+                                
+                                st.markdown(render_premium_metric("현재가", f"{selected_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
+                                st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
+                                st.markdown("##### 📡 실시간 감지 신호")
+                                st.markdown(render_premium_signals(selected_data['signals']), unsafe_allow_html=True)
+                                
+                                st.markdown("##### 💡 전문가 의견")
+                                st.markdown(render_premium_expert_opinion(selected_data['action'], selected_data['action_desc']), unsafe_allow_html=True)
                 
                 # [추가] 테이블 선택이 어려운 경우를 위한 드롭다운 삭제 (백업 방식)
                 with st.expander("⚠️ 표 선택이 안 되시나요? (이름으로 삭제)"):
