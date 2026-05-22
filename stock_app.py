@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from stock_scanner import StockScanner
+from stock_scanner import StockScanner, get_choseong, is_consonant_only
 import plotly.graph_objects as go
 from datetime import datetime
 import time
@@ -1195,6 +1195,113 @@ def render_macro_dashboard():
                 </div>
                 """, unsafe_allow_html=True)
 
+# --- Shadowing & Theme Encyclopedia Management ---
+SHADOWING_FILE = os.path.join(BASE_DIR, "shadowing_dictionary.json")
+
+def initialize_default_shadowing_data():
+    """기본 주도 테마 백과사전 및 쉐도잉 일지 예시 데이터를 반환합니다."""
+    return {
+        "dictionary": [
+            {
+                "id": "theme_001",
+                "theme": "반도체 HBM / CXL",
+                "stocks": "한미반도체, 네오셈, 삼성전자, SK하이닉스",
+                "reason": "엔비디아향 HBM3E/HBM4 공급 경쟁 본격화 및 AI 고성능 컴퓨팅을 위한 차세대 CXL 2.0 규격 메모리 모듈 부각",
+                "last_updated": "2026-05-23"
+            },
+            {
+                "id": "theme_002",
+                "theme": "인공지능 (AI) 온디바이스",
+                "stocks": "제주반도체, 오픈엣지테크놀로지, 리노공업, 칩스앤미디어",
+                "reason": "클라우드를 거치지 않고 단말기 자체에서 AI를 수행하는 온디바이스 기기(스마트폰, PC 등) 개화로 저전력 메모리 반도체 및 NPU IP 설계 가치 폭등",
+                "last_updated": "2026-05-23"
+            },
+            {
+                "id": "theme_003",
+                "theme": "초전도체 (LK-99 / PCPOSOS)",
+                "stocks": "신성델타테크, 파워로직스, 서남, 덕성",
+                "reason": "상온 초전도체 개발 주장 및 국내외 연구진의 학회 발표, 교차 검증 소식이 전해질 때마다 테마 전체가 극도의 변동성을 보이며 급등락",
+                "last_updated": "2026-05-23"
+            },
+            {
+                "id": "theme_004",
+                "theme": "2차전지 (양극재 / 리튬)",
+                "stocks": "에코프로, 에코프로비엠, 포스코퓨처엠, 금양, 엘앤에프",
+                "reason": "글로벌 친환경 탄소 제로 정책 수혜 및 북미 시장 중심의 대규모 배터리 핵심 양극소재 장기 공급 계약 수주에 따른 외형 성장",
+                "last_updated": "2026-05-23"
+            },
+            {
+                "id": "theme_005",
+                "theme": "원자력 발전 (원전 / SMR)",
+                "stocks": "두산에너빌리티, 우리기술, 서전기전, 보성파워텍, 에너토크",
+                "reason": "동유럽(체코, 폴란드 등) 대규모 원전 건설 프로젝트 수주 기대감 및 미래 AI 데이터센터 전력 공급을 위한 소형 모듈 원자로(SMR) 필요성 부각",
+                "last_updated": "2026-05-23"
+            },
+            {
+                "id": "theme_006",
+                "theme": "바이오 (ADC / 비만치료제)",
+                "stocks": "알테오젠, 유한양행, 리가켐바이오, HLB, 에이비엘바이오",
+                "reason": "글로벌 빅파마로의 차세대 ADC(항암 항체-약물 접합체) 기술 이전 및 기적의 비만치료제(GLP-1 계열) 시장 성장에 따른 신약 파이프라인 가치 재평가",
+                "last_updated": "2026-05-23"
+            }
+        ],
+        "records": [
+            {
+                "date": "2026-05-20",
+                "keyword": "초전도체",
+                "stocks": "신성델타테크, 파워로직스",
+                "reason": "미국 물리학회 발표를 앞두고 새로운 상온 초전도 합성 성공 소식에 장중 거래대금이 쏠리며 급등 마감"
+            },
+            {
+                "date": "2026-05-21",
+                "keyword": "반도체",
+                "stocks": "한미반도체, 네오셈",
+                "reason": "엔비디아의 어닝 서프라이즈로 HBM 및 차세대 메모리 소부장 대장주들이 500억 이상의 압도적인 거래대금을 동반해 장대양봉 기록"
+            },
+            {
+                "date": "2026-05-22",
+                "keyword": "바이오",
+                "stocks": "알테오젠, 리가켐바이오",
+                "reason": "글로벌 제약사로부터 조 단위 추가 기술 마일스톤 수취 뉴스가 부각되며 ADC 플랫폼 관련 종목들에 수급 유입"
+            },
+            {
+                "date": "2026-05-23",
+                "keyword": "인공지능",
+                "stocks": "제주반도체, 오픈엣지테크놀로지",
+                "reason": "주요 글로벌 스마트폰 제조사의 AI 탑재 신제품 보급 확대 계획 발표로 온디바이스 AI 관련 저전력 칩 테마 상승세 주도"
+            }
+        ]
+    }
+
+def load_shadowing_data():
+    """로컬 JSON에서 쉐도잉 데이터를 불러옵니다. 파일이 없을 경우 기본값을 생성합니다."""
+    if os.path.exists(SHADOWING_FILE):
+        try:
+            with open(SHADOWING_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                # 데이터 정합성 검증
+                if "dictionary" not in data: data["dictionary"] = []
+                if "records" not in data: data["records"] = []
+                return data
+        except Exception as e:
+            st.error(f"쉐도잉 데이터 로드 에러: {e}. 초기값으로 복구합니다.")
+            return initialize_default_shadowing_data()
+    else:
+        # 파일이 없을 경우 초기 생성 및 저장
+        default_data = initialize_default_shadowing_data()
+        save_shadowing_data(default_data)
+        return default_data
+
+def save_shadowing_data(data):
+    """쉐도잉 데이터를 로컬 JSON에 저장합니다."""
+    try:
+        with open(SHADOWING_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"쉐도잉 데이터 저장 실패: {e}")
+        return False
+
 # --- App Logic ---
 st.title("🚀 Premium Stock Selection & Monitoring")
 render_macro_dashboard()
@@ -1421,7 +1528,7 @@ with st.sidebar:
         st.caption("☁️ 클라우드 배포 모드로 동작 중입니다.")
 
 # 메인 탭 구성
-tab_scan, tab_whale, tab_portfolio, tab_guide = st.tabs(["🔍 종목 스캔", "🐳 세력분석 & 매매타점", "💼 나의 포트폴리오", "💡 사용법 & 알고리즘"])
+tab_scan, tab_whale, tab_portfolio, tab_dict, tab_guide = st.tabs(["🔍 종목 스캔", "🐳 세력분석 & 매매타점", "💼 나의 포트폴리오", "📚 주도주·테마 백과사전", "💡 사용법 & 알고리즘"])
 
 with tab_scan:
     st.markdown("### 🔍 시장 종목 스캐너")
@@ -2474,6 +2581,312 @@ with tab_portfolio:
                         st.rerun()
             else:
                 st.info(f"등록된 {m_key} 보유 종목이 없습니다.")
+
+with tab_dict:
+    st.markdown("### 📚 주도주·테마 백과사전 & 주식 쉐도잉")
+    st.caption("유튜브 영상(RhMRtXb_95E)에 수록된 '주식 쉐도잉' 및 '나만의 테마/종목 DB 훈련'을 보조하는 디지털 도구입니다.")
+    
+    # 1. 데이터 불러오기
+    shadow_data = load_shadowing_data()
+    
+    # 2. 서브 탭 구성
+    sub_dict_tab, sub_shadow_tab, sub_trend_tab = st.tabs([
+        "📚 1. 주도 테마 백과사전", 
+        "✍️ 2. 주식 쉐도잉 일일 기록기", 
+        "📅 3. 키워드 캘린더 & 트렌드 분석"
+    ])
+    
+    # --- 서브 탭 1: 주도 테마 백과사전 ---
+    with sub_dict_tab:
+        st.markdown("#### 🔍 나만의 테마·종목 사전")
+        st.caption("시장에서 등장한 주도 업종, 테마와 관련 대장주들을 정형화된 DB로 구축합니다.")
+        
+        # 검색창 (자음/초성 검색 지원)
+        search_kw = st.text_input("🔍 테마명 또는 종목명 검색 (예: 반도체, 한미반도체, ㅂㄷㅊ)", key="dict_search_input").strip()
+        
+        # 테마 신규 등록 폼
+        with st.expander("➕ 새로운 주도 테마 / 관련 종목 수동 등록"):
+            col_add_t1, col_add_t2 = st.columns(2)
+            new_theme_name = col_add_t1.text_input("테마명 (예: 우주항공 / 위성)", key="new_theme_name").strip()
+            new_theme_stocks = col_add_t2.text_input("관련 종목 (쉼표로 구분, 예: AP위성, 켄코아에어로스페이스)", key="new_theme_stocks").strip()
+            new_theme_reason = st.text_area("상승 이유 및 주요 재료 (뉴스 키워드 등)", key="new_theme_reason").strip()
+            
+            if st.button("💾 백과사전에 테마 등록", use_container_width=True):
+                if not new_theme_name or not new_theme_stocks:
+                    st.warning("테마명과 관련 종목은 필수 입력 항목입니다.")
+                else:
+                    new_id = f"theme_{int(time.time())}"
+                    new_theme_entry = {
+                        "id": new_id,
+                        "theme": new_theme_name,
+                        "stocks": new_theme_stocks,
+                        "reason": new_theme_reason,
+                        "last_updated": datetime.now().strftime('%Y-%m-%d')
+                    }
+                    shadow_data["dictionary"].append(new_theme_entry)
+                    if save_shadowing_data(shadow_data):
+                        st.success(f"✅ '{new_theme_name}' 테마가 백과사전에 성공적으로 등록되었습니다!")
+                        time.sleep(1)
+                        st.rerun()
+        
+        # 검색 필터링 로직
+        filtered_dict = []
+        for entry in shadow_data["dictionary"]:
+            theme_val = entry.get("theme", "")
+            stocks_val = entry.get("stocks", "")
+            reason_val = entry.get("reason", "")
+            
+            if not search_kw:
+                filtered_dict.append(entry)
+            else:
+                # 일반 문자열 및 초성 매칭
+                q_choseong = get_choseong(search_kw)
+                is_cons = is_consonant_only(search_kw)
+                
+                theme_cho = get_choseong(theme_val)
+                stocks_cho = get_choseong(stocks_val)
+                
+                # 매칭 여부 판정
+                match_found = False
+                if is_cons:
+                    if q_choseong in theme_cho or q_choseong in stocks_cho:
+                        match_found = True
+                else:
+                    search_kw_upper = search_kw.upper()
+                    if (search_kw_upper in theme_val.upper() or 
+                        search_kw_upper in stocks_val.upper() or 
+                        search_kw_upper in reason_val.upper()):
+                        match_found = True
+                        
+                if match_found:
+                    filtered_dict.append(entry)
+                    
+        # 필터링된 사전 카드형 시각화
+        if filtered_dict:
+            st.markdown(f"💡 총 **{len(filtered_dict)}개**의 테마가 조회되었습니다.")
+            
+            # 2단 그리드 형태로 출력
+            for j in range(0, len(filtered_dict), 2):
+                cols_cards = st.columns(2)
+                for k in range(2):
+                    idx_card = j + k
+                    if idx_card < len(filtered_dict):
+                        card = filtered_dict[idx_card]
+                        with cols_cards[k]:
+                            # 프리미엄 Glassmorphism 카드 레이아웃
+                            st.markdown(f"""
+                            <div style="
+                                background: linear-gradient(135deg, rgba(30, 37, 54, 0.95) 0%, rgba(16, 21, 31, 0.99) 100%) !important;
+                                border: 1px solid rgba(88, 166, 255, 0.15) !important;
+                                border-radius: 12px !important;
+                                padding: 18px !important;
+                                margin-bottom: 12px !important;
+                                box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
+                                position: relative !important;
+                            ">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <span style="font-size: 1.1em; font-weight: 800; color: #58a6ff !important; text-shadow: 0 0 8px rgba(88,166,255,0.3);">📚 {card['theme']}</span>
+                                    <span style="font-size: 0.72em; color: #8b949e !important;">🕒 {card['last_updated']}</span>
+                                </div>
+                                <div style="margin-bottom: 8px;">
+                                    <span style="font-size: 0.76em; color: #8b949e; font-weight: bold; text-transform: uppercase;">🔥 주요 종목</span>
+                                    <p style="margin: 4px 0 0 0; color: #2ecc71 !important; font-weight: 700; font-size: 0.9em; line-height: 1.4;">{card['stocks']}</p>
+                                </div>
+                                <div>
+                                    <span style="font-size: 0.76em; color: #8b949e; font-weight: bold; text-transform: uppercase;">💡 핵심 상승 재료</span>
+                                    <p style="margin: 4px 0 0 0; color: #f0f6fc !important; font-size: 0.82em; line-height: 1.5; font-weight: 500;">{card['reason']}</p>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            # 삭제 및 수정 버튼을 st.button으로 구현
+                            c_card_del, c_card_edit = st.columns([1, 4])
+                            with c_card_del:
+                                if st.button("🗑️ 삭제", key=f"del_theme_{card['id']}", help="테마를 삭제합니다."):
+                                    shadow_data["dictionary"] = [x for x in shadow_data["dictionary"] if x["id"] != card["id"]]
+                                    if save_shadowing_data(shadow_data):
+                                        st.success("테마가 삭제되었습니다!")
+                                        time.sleep(0.5)
+                                        st.rerun()
+        else:
+            st.warning("일치하는 테마 데이터가 사전 데이터에 없습니다. 검색어나 철자를 확인하시거나 새로 등록해 보세요.")
+            
+    # --- 서브 탭 2: 주식 쉐도잉 일일 기록기 ---
+    with sub_shadow_tab:
+        st.markdown("#### ✍️ 주식 쉐도잉 (Stock Shadowing) 훈련장")
+        st.info("💡 **주식 쉐도잉 원칙**: 장 마감 후 매일 상승률 15% 이상 & 거래대금 500억 이상 터진 주도주를 찾고 상승 이유와 재료를 기록함으로써 시장의 돈 흐름을 체계적으로 훈련합니다.")
+        
+        # [혁신 연동 기능] 오늘 스캔 결과에서 자동 완성하기
+        st.markdown("##### 🚀 원클릭 데이터 연동 헬퍼")
+        
+        scan_data_exists = 'scan_results' in st.session_state and st.session_state['scan_results']
+        
+        if scan_data_exists:
+            scan_opts = st.session_state['scan_results']
+            # 점수 및 등락률 우수 종목들만 필터링
+            eligible_stocks = [s for s in scan_opts if s['score'] >= 60 or abs(s['change_rate']) >= 10]
+            
+            if eligible_stocks:
+                st.caption(f"💡 오늘 '{st.session_state.get('current_market', '시장')}' 스캔 결과 중 쉐도잉 적합 종목이 {len(eligible_stocks)}개 감지되었습니다. 아래에서 선택하면 입력 폼이 자동으로 채워집니다!")
+                
+                selected_scan_helper = st.selectbox(
+                    "오늘 스캔한 우수 종목 중 선택",
+                    options=eligible_stocks,
+                    format_func=lambda x: f"📈 {x['Name']} ({x['symbol']}) | 등락률: {x['change_rate']:+.1f}% | 점수: {x['score']}점",
+                    key="dict_scan_helper_select"
+                )
+                
+                if st.button("⚡ 선택한 종목 정보로 아래 폼 자동완성", type="secondary"):
+                    # 자동완성을 위한 세션 스테이트 설정
+                    st.session_state['shadow_form_keyword'] = selected_scan_helper.get('signals', '').split("🚀")[0].split(",")[0].strip()[:10] if selected_scan_helper.get('signals') else ""
+                    st.session_state['shadow_form_stocks'] = selected_scan_helper['Name']
+                    st.session_state['shadow_form_reason'] = f"당일 기술적 분석 종합점수 {selected_scan_helper['score']}점 획득. 감지 신호: {selected_scan_helper['signals']}"
+                    st.success("폼에 데이터가 성공적으로 주입되었습니다! 하단에서 추가 내용을 보완하여 저장하세요.")
+            else:
+                st.caption("오늘 스캔한 종목 중 점수 60점 이상 또는 등락률 10% 이상인 종목이 없어 자동완성이 불가능합니다.")
+        else:
+            st.caption("📢 **알림**: '종목 스캔' 탭에서 시장 스캔을 먼저 실행하시면, 여기에 스캔 완료 종목 정보로 입력 폼을 즉시 채워주는 원클릭 자동완성 헬퍼 기능이 활성화됩니다.")
+            
+        st.markdown("---")
+        st.markdown("##### 📝 오늘의 쉐도잉 일지 작성")
+        
+        # 세션 스테이트 기본값 설정
+        form_keyword_val = st.session_state.get('shadow_form_keyword', "")
+        form_stocks_val = st.session_state.get('shadow_form_stocks', "")
+        form_reason_val = st.session_state.get('shadow_form_reason', "")
+        
+        # 쉐도잉 일지 입력 폼
+        shadow_date = st.date_input("날짜 선택", value=datetime.now(), key="shadow_date_input")
+        
+        # 텍스트 인풋 생성 (세션 키 바인딩)
+        shadow_keyword = st.text_input("주도 키워드 / 테마 (예: 반도체 CXL, 비만치료제)", value=form_keyword_val, key="shadow_keyword_input").strip()
+        shadow_stocks = st.text_input("주도 종목명 (예: 네오셈, 제주반도체)", value=form_stocks_val, key="shadow_stocks_input").strip()
+        shadow_reason = st.text_area("상승 이유 및 거래 재료 (장 마감 분석 핵심 기재)", value=form_reason_val, key="shadow_reason_input").strip()
+        
+        if st.button("✍️ 쉐도잉 일지 기록 저장", type="primary", use_container_width=True):
+            if not shadow_keyword or not shadow_stocks or not shadow_reason:
+                st.warning("모든 필드(키워드, 종목명, 상승이유)를 성실히 채워주세요.")
+            else:
+                new_record = {
+                    "date": shadow_date.strftime('%Y-%m-%d'),
+                    "keyword": shadow_keyword,
+                    "stocks": shadow_stocks,
+                    "reason": shadow_reason
+                }
+                shadow_data["records"].append(new_record)
+                
+                # 백과사전에도 없는 테마라면 자동 등재해줄지 여부 (자동 확장성 스마트 기능)
+                theme_exists_in_dict = any(x["theme"].replace(" ", "").upper() in shadow_keyword.replace(" ", "").upper() for x in shadow_data["dictionary"])
+                if not theme_exists_in_dict:
+                    new_theme_auto = {
+                        "id": f"theme_{int(time.time())}",
+                        "theme": shadow_keyword,
+                        "stocks": shadow_stocks,
+                        "reason": f"({shadow_date.strftime('%Y-%m-%d')} 쉐도잉 기록에서 자동 등재됨) {shadow_reason}",
+                        "last_updated": shadow_date.strftime('%Y-%m-%d')
+                    }
+                    shadow_data["dictionary"].append(new_theme_auto)
+                    st.info(f"💡 '{shadow_keyword}' 테마가 백과사전에도 자동으로 신규 등재되었습니다!")
+                
+                if save_shadowing_data(shadow_data):
+                    # 쉐도잉 입력창 초기화
+                    st.session_state['shadow_form_keyword'] = ""
+                    st.session_state['shadow_form_stocks'] = ""
+                    st.session_state['shadow_form_reason'] = ""
+                    
+                    st.success("✅ 오늘의 쉐도잉 일지가 안전하게 로컬 DB에 기록되었습니다! 훈련 누적 완료!")
+                    time.sleep(1)
+                    st.rerun()
+                    
+    # --- 서브 탭 3: 키워드 캘린더 & 트렌드 분석 ---
+    with sub_trend_tab:
+        st.markdown("#### 📊 시장 주도 테마 트렌드 & 지속 강도 분석")
+        st.caption("작성하신 쉐도잉 일지를 바탕으로 시장 내 테마들의 점유율(출현 빈도)과 트렌드 흐름을 숫자로 정량화합니다.")
+        
+        records_list = shadow_data.get("records", [])
+        
+        if records_list:
+            df_rec = pd.DataFrame(records_list)
+            # 날짜 정렬
+            df_rec['date'] = pd.to_datetime(df_rec['date'])
+            df_rec = df_rec.sort_values(by='date', ascending=False).reset_index(drop=True)
+            
+            # --- 1) 지배적인 주도 테마 1위 분석 메트릭 ---
+            keyword_counts = df_rec['keyword'].value_counts()
+            if not keyword_counts.empty:
+                top_theme = keyword_counts.index[0]
+                top_count = keyword_counts.iloc[0]
+                
+                st.markdown("##### 🏆 이 달의 최강 주도 테마 (지배력 1위)")
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, rgba(241, 196, 15, 0.18) 0%, rgba(16, 20, 28, 0.99) 100%) !important;
+                    border: 2px solid #f1c40f !important;
+                    border-radius: 12px !important;
+                    padding: 20px !important;
+                    margin-bottom: 20px !important;
+                    box-shadow: 0 0 25px rgba(241, 196, 15, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.15) !important;
+                    text-align: center !important;
+                ">
+                    <span style="font-size: 0.9em; color: #8b949e !important; font-weight: bold; letter-spacing: 1px;">DOMINANT KEYWORD</span>
+                    <h2 style="color: #f1c40f !important; margin: 8px 0; font-weight: 900; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);">🔥 {top_theme} 테마 ({top_count}회 감지)</h2>
+                    <p style="color: #f0f6fc !important; font-size: 0.85em; margin: 0; font-weight: 500;">훈련 일지 상에서 가장 높은 쏠림 현상을 보인 시장 주도 대장 테마입니다.</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            # --- 2) 키워드 출현 빈도수 가로 바차트 ---
+            st.markdown("##### 📊 주도 테마 출현 빈도수 순위")
+            df_counts = keyword_counts.reset_index()
+            df_counts.columns = ['Theme', 'Count']
+            
+            fig_trend = go.Figure(go.Bar(
+                x=df_counts['Count'],
+                y=df_counts['Theme'],
+                orientation='h',
+                marker=dict(
+                    color='rgba(88, 166, 255, 0.85)',
+                    line=dict(color='#58a6ff', width=1.5)
+                )
+            ))
+            
+            fig_trend.update_layout(
+                height=300,
+                template="plotly_dark",
+                plot_bgcolor='#131722',
+                paper_bgcolor='#0e1117',
+                margin=dict(l=10, r=10, t=10, b=10),
+                xaxis=dict(gridcolor='rgba(255, 255, 255, 0.04)', linecolor='rgba(255, 255, 255, 0.1)', tickformat=',d'),
+                yaxis=dict(gridcolor='rgba(255, 255, 255, 0.04)', linecolor='rgba(255, 255, 255, 0.1)', autorange="reversed")
+            )
+            
+            st.plotly_chart(fig_trend, use_container_width=True)
+            
+            # --- 3) 쉐도잉 일지 누적 캘린더 타임라인 ---
+            st.markdown("##### 📅 주식 쉐도잉 일일 누적 피드백")
+            
+            for idx_rec, row_rec in df_rec.iterrows():
+                rec_date_str = row_rec['date'].strftime('%Y-%m-%d')
+                expander_label = f"📅 [{rec_date_str}] {row_rec['keyword']} - {row_rec['stocks']}"
+                
+                with st.expander(expander_label):
+                    st.markdown(f"**🔥 주도 종목**: {row_rec['stocks']}")
+                    st.markdown(f"**💡 장 마감 분석 및 재료**:\n{row_rec['reason']}")
+                    
+                    # 개별 기록 삭제 버튼
+                    if st.button("🗑️ 해당 일지 삭제", key=f"del_rec_{idx_rec}", help="이날의 쉐도잉 기록을 삭제합니다."):
+                        # 날짜, 키워드, 종목명 매칭하여 필터 제거
+                        shadow_data["records"] = [
+                            x for x in shadow_data["records"] 
+                            if not (x["date"] == row_rec['date'].strftime('%Y-%m-%d') and 
+                                    x["keyword"] == row_rec['keyword'] and 
+                                    x["stocks"] == row_rec['stocks'])
+                        ]
+                        if save_shadowing_data(shadow_data):
+                            st.success("일지가 성공적으로 삭제되었습니다!")
+                            time.sleep(0.5)
+                            st.rerun()
+        else:
+            st.warning("누적된 쉐도잉 기록이 없습니다. '2. 주식 쉐도잉 일일 기록기' 탭에서 오늘의 첫 시장 일지를 작성하여 훈련을 개시하세요!")
 
 with tab_guide:
     st.markdown("### 💡 종목분석기 사용법 및 알고리즘 완벽 가이드")
