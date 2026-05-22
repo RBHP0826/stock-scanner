@@ -192,6 +192,96 @@ st.markdown("""
         border-color: #8b949e !important;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
     }
+
+    /* 🚀 급등 임박 (Surge Alarm) 프리미엄 다크/레드 네온 카드 */
+    .surge-card {
+        background: linear-gradient(135deg, rgba(255, 75, 75, 0.16) 0%, rgba(20, 24, 33, 0.99) 100%) !important;
+        backdrop-filter: blur(16px) !important;
+        -webkit-backdrop-filter: blur(16px) !important;
+        padding: 20px !important;
+        border-radius: 14px !important;
+        border: 2px solid #ff4b4b !important;
+        box-shadow: 0 0 25px rgba(255, 75, 75, 0.4), 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.2) !important;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+        position: relative !important;
+        overflow: hidden !important;
+        margin-bottom: 15px !important;
+        display: block !important;
+    }
+    .surge-card-glow {
+        position: absolute !important;
+        top: -20px !important;
+        right: -20px !important;
+        width: 80px !important;
+        height: 80px !important;
+        background: #ff4b4b !important;
+        opacity: 0.25 !important;
+        filter: blur(20px) !important;
+        border-radius: 50% !important;
+        pointer-events: none !important;
+    }
+    .surge-card-header {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        margin-bottom: 8px !important;
+    }
+    .surge-card-title {
+        margin: 0 !important;
+        color: #ff4b4b !important;
+        font-size: 1.35em !important;
+        font-weight: 800 !important;
+        text-shadow: 0 0 10px rgba(255, 75, 75, 0.5) !important;
+        line-height: 1.2 !important;
+    }
+    .surge-card-symbol {
+        font-size: 0.85em !important;
+        color: #8b949e !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.5px !important;
+    }
+    .surge-card-score {
+        background-color: #ff4b4b !important;
+        color: white !important;
+        padding: 3px 8px !important;
+        border-radius: 6px !important;
+        font-weight: 900 !important;
+        font-size: 0.75em !important;
+        box-shadow: 0 0 8px rgba(255, 75, 75, 0.6) !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+    }
+    .surge-card-price {
+        font-size: 2.0em !important;
+        font-weight: 900 !important;
+        color: #ffffff !important;
+        margin: 12px 0 10px 0 !important;
+        line-height: 1.1 !important;
+        display: flex !important;
+        align-items: baseline !important;
+        gap: 2px !important;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.5) !important;
+    }
+    .surge-card-price-suffix {
+        font-size: 0.5em !important;
+        font-weight: 700 !important;
+        color: #8b949e !important;
+        margin-left: 2px !important;
+    }
+    .surge-card-badges {
+        display: flex !important;
+        gap: 4px !important;
+        flex-wrap: wrap !important;
+        margin-bottom: 10px !important;
+    }
+    .surge-card-signals {
+        margin: 8px 0 0 0 !important;
+        font-size: 0.82em !important;
+        color: #e1e7ed !important;
+        line-height: 1.4 !important;
+        font-weight: 500 !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+        padding-top: 8px !important;
+    }
     
     /* 📱 스마트폰/모바일 환경 최적화 CSS (화면 가로 768px 이하) */
     @media (max-width: 768px) {
@@ -261,6 +351,24 @@ st.markdown("""
         }
         div[style*="backdrop-filter: blur(16px)"] > div[style*="font-size: 2.1em"] {
             font-size: 1.5em !important;
+        }
+
+        /* 모바일에서 급등 임박 카드 컴팩트화 */
+        .surge-card {
+            padding: 12px 16px !important;
+            margin-bottom: 10px !important;
+            border-radius: 10px !important;
+        }
+        .surge-card-title {
+            font-size: 1.1em !important;
+        }
+        .surge-card-price {
+            font-size: 1.5em !important;
+            margin: 8px 0 6px 0 !important;
+        }
+        .surge-card-signals {
+            font-size: 0.76em !important;
+            padding-top: 6px !important;
         }
     }
     </style>
@@ -465,11 +573,13 @@ def convert_to_tradingview_symbol(symbol, market):
     return symbol
 
 def clean_html(html_str):
-    """HTML 문자열 내부의 모든 줄바꿈과 연속된 공백을 한 줄로 정돈하여 Streamlit 마크다운 파서 오작동을 원천 봉쇄합니다."""
+    """HTML 문자열 내부의 연속된 빈 줄을 정리하되, HTML 블록 파싱을 위해 줄바꿈은 보존합니다."""
     import re
-    cleaned = html_str.replace('\n', ' ')
-    cleaned = re.sub(r'\s+', ' ', cleaned)
-    return cleaned.strip()
+    # 연속된 줄바꿈(빈 줄)을 단일 줄바꿈으로 정리
+    cleaned = re.sub(r'\n\s*\n', '\n', html_str)
+    # 각 라인의 좌우 공백을 제거하되 줄바꿈은 보존
+    lines = [line.strip() for line in cleaned.split('\n') if line.strip()]
+    return '\n'.join(lines)
 
 def render_premium_metric(label, value, suffix="", color=None):
     """다크 테마 고정 환경에서 극도로 눈에 띄고 입체적인 Glassmorphism 네온 메트릭 카드를 렌더링합니다."""
@@ -1563,58 +1673,22 @@ with tab_scan:
                     
                     price_suffix = "원" if current_market != '미국 (US)' else "달러"
                     
-                    st.markdown(clean_html(f"""
-                    <div style="
-                        background: linear-gradient(135deg, rgba(255, 75, 75, 0.16) 0%, rgba(20, 24, 33, 0.99) 100%) !important;
-                        backdrop-filter: blur(16px) !important;
-                        -webkit-backdrop-filter: blur(16px) !important;
-                        padding: 20px !important;
-                        border-radius: 14px !important;
-                        border: 2px solid #ff4b4b !important;
-                        box-shadow: 0 0 25px rgba(255, 75, 75, 0.4), 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.2) !important;
-                        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-                        position: relative !important;
-                        overflow: hidden !important;
-                        margin-bottom: 15px !important;
-                    ">
-                        <!-- 백그라운드 발광 데코레이션 -->
-                        <div style="
-                            position: absolute !important;
-                            top: -20px !important;
-                            right: -20px !important;
-                            width: 80px !important;
-                            height: 80px !important;
-                            background: #ff4b4b !important;
-                            opacity: 0.25 !important;
-                            filter: blur(20px) !important;
-                            border-radius: 50% !important;
-                            pointer-events: none !important;
-                        "></div>
-                        
-                        <div style="display: flex !important; justify-content: space-between !important; align-items: flex-start !important; margin-bottom: 8px !important;">
-                            <div>
-                                <h3 style="margin: 0 !important; color: #ff4b4b !important; font-size: 1.35em !important; font-weight: 800 !important; text-shadow: 0 0 10px rgba(255, 75, 75, 0.5) !important; line-height: 1.2 !important;">🚀 {row['Name']}</h3>
-                                <span style="font-size: 0.8em !important; color: #8b949e !important; font-weight: 600 !important; letter-spacing: 0.5px !important;">{row['symbol']}</span>
-                            </div>
-                            <div style="background-color: #ff4b4b !important; color: white !important; padding: 3px 8px !important; border-radius: 6px !important; font-weight: 900 !important; font-size: 0.75em !important; box-shadow: 0 0 8px rgba(255, 75, 75, 0.6) !important; border: 1px solid rgba(255,255,255,0.2) !important;">
-                                SCORE {row['score']}
-                            </div>
-                        </div>
-                        
-                        <div style="font-size: 2.0em !important; font-weight: 900 !important; color: #ffffff !important; margin: 12px 0 10px 0 !important; line-height: 1.1 !important; display: flex !important; align-items: baseline !important; gap: 2px !important; text-shadow: 0 2px 10px rgba(0,0,0,0.5) !important;">
-                            {row['current_price']:,.0f}
-                            <span style="font-size: 0.5em !important; font-weight: 700 !important; color: #8b949e !important; margin-left: 2px !important;">{price_suffix}</span>
-                        </div>
-                        
-                        <div style="display: flex !important; gap: 4px !important; flex-wrap: wrap !important; margin-bottom: 10px !important;">
-                            {expert_badges}
-                        </div>
-                        
-                        <p style="margin: 8px 0 0 0 !important; font-size: 0.82em !important; color: #e1e7ed !important; line-height: 1.4 !important; font-weight: 500 !important; border-top: 1px solid rgba(255,255,255,0.08) !important; padding-top: 8px !important;">
-                            📢 {row['signals'].split('🚀')[1] if '🚀' in row['signals'] else row['signals']}
-                        </p>
-                    </div>
-                    """), unsafe_allow_html=True)
+                    card_html = (
+                        f'<div class="surge-card">'
+                        f'<div class="surge-card-glow"></div>'
+                        f'<div class="surge-card-header">'
+                        f'<div>'
+                        f'<h3 class="surge-card-title">🚀 {row["Name"]}</h3>'
+                        f'<span class="surge-card-symbol">{row["symbol"]}</span>'
+                        f'</div>'
+                        f'<div class="surge-card-score">SCORE {row["score"]}</div>'
+                        f'</div>'
+                        f'<div class="surge-card-price">{row["current_price"]:,.0f}<span class="surge-card-price-suffix">{price_suffix}</span></div>'
+                        f'<div class="surge-card-badges">{expert_badges}</div>'
+                        f'<p class="surge-card-signals">📢 {row["signals"].split("🚀")[1] if "🚀" in row["signals"] else row["signals"]}</p>'
+                        f'</div>'
+                    )
+                    st.markdown(card_html, unsafe_allow_html=True)
             st.write("")
 
         # --- [2] 실시간 분석 결과 리스트 (Table) ---
