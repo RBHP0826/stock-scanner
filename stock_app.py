@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from stock_scanner import StockScanner, get_choseong, is_consonant_only
+from stock_scanner import StockScanner
 import plotly.graph_objects as go
 from datetime import datetime
 import time
@@ -10,7 +10,6 @@ import json
 import os
 import requests
 from streamlit.runtime import Runtime
-import yfinance as yf
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -83,334 +82,63 @@ def auto_shutdown_monitor():
 # --- Custom Styling ---
 st.markdown("""
     <style>
-    /* 기본 테마 설정 - 전체 앱 배경 다크 모드로 강력 강제 고정 */
-    .stApp {
-        background-color: #0b0e14 !important;
-        color: #c9d1d9 !important;
+    /* 기본 테마 설정 */
+    .main {
+        background-color: #0e1117;
     }
-    
-    /* 사이드바 다크 톤앤매너로 일치 */
-    section[data-testid="stSidebar"] {
-        background-color: #0f121d !important;
-        border-right: 1px solid #1f2438 !important;
-    }
-    
-    /* 텍스트 요소들 강제 흰색 계열로 고정 */
-    h1, h2, h3, h4, h5, h6, p, li, span, label {
-        color: #f0f6fc !important;
-    }
-    
-    /* Streamlit 내장 캡션 색상도 밝게 상향 조정 */
-    .stCaption, .stMarkdown caption {
-        color: #8b949e !important;
-    }
-    
-    /* Streamlit Metric 컴포넌트 커스터마이징 */
     .stMetric {
-        background-color: #161b22 !important;
-        padding: 15px !important;
-        border-radius: 10px !important;
-        border: 1px solid #30363d !important;
+        background-color: #1a1c24;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #30363d;
     }
-    
-    /* 제목 헤딩 */
     .stHeading {
-        color: #58a6ff !important;
-    }
-
-    /* 탭 메뉴 디자인 개선 */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px !important;
-        background-color: #0f121d !important;
-        padding: 6px 12px !important;
-        border-radius: 8px !important;
-        border: 1px solid #1f2438 !important;
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 38px !important;
-        white-space: pre !important;
-        background-color: transparent !important;
-        border-radius: 6px !important;
-        color: #8b949e !important;
-        font-weight: 600 !important;
-        border: none !important;
-        transition: all 0.2s ease !important;
-    }
-    .stTabs [data-baseweb="tab"]:hover {
-        color: #f0f6fc !important;
-        background-color: rgba(255, 255, 255, 0.05) !important;
-    }
-    .stTabs [aria-selected="true"] {
-        background-color: #58a6ff1a !important;
-        color: #58a6ff !important;
-        border: 1px solid #58a6ff33 !important;
-    }
-
-    /* 아코디언/익스팬더 스타일 초프리미엄화 */
-    .streamlit-expanderHeader {
-        background-color: #161b22 !important;
-        border: 1px solid #30363d !important;
-        border-radius: 8px 8px 0 0 !important;
-        color: #f0f6fc !important;
-        font-weight: bold !important;
-    }
-    .streamlit-expanderContent {
-        background-color: #0e1117 !important;
-        border-left: 1px solid #30363d !important;
-        border-right: 1px solid #30363d !important;
-        border-bottom: 1px solid #30363d !important;
-        border-radius: 0 0 8px 8px !important;
-        padding: 16px !important;
-    }
-
-    /* 입력창 및 셀렉트 박스 초프리미엄 다크화 */
-    .stSelectbox div[data-baseweb="select"] {
-        background-color: #161b22 !important;
-        color: #f0f6fc !important;
-        border: 1px solid #30363d !important;
-        border-radius: 8px !important;
-    }
-    .stTextInput input {
-        background-color: #161b22 !important;
-        color: #f0f6fc !important;
-        border: 1px solid #30363d !important;
-        border-radius: 8px !important;
-    }
-    
-    /* 버튼 스타일 초프리미엄 다크화 */
-    .stButton > button {
-        background-color: #21262d !important;
-        color: #c9d1d9 !important;
-        border: 1px solid #30363d !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        transition: all 0.2s ease !important;
-    }
-    .stButton > button:hover {
-        background-color: #30363d !important;
-        color: #f0f6fc !important;
-        border-color: #8b949e !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
-    }
-
-    /* 🚀 급등 임박 (Surge Alarm) 프리미엄 다크/레드 네온 카드 */
-    .surge-card {
-        background: linear-gradient(135deg, rgba(255, 75, 75, 0.16) 0%, rgba(20, 24, 33, 0.99) 100%) !important;
-        backdrop-filter: blur(16px) !important;
-        -webkit-backdrop-filter: blur(16px) !important;
-        padding: 20px !important;
-        border-radius: 14px !important;
-        border: 2px solid #ff4b4b !important;
-        box-shadow: 0 0 25px rgba(255, 75, 75, 0.4), 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.2) !important;
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-        position: relative !important;
-        overflow: hidden !important;
-        margin-bottom: 15px !important;
-        display: block !important;
-    }
-    .surge-card-glow {
-        position: absolute !important;
-        top: -20px !important;
-        right: -20px !important;
-        width: 80px !important;
-        height: 80px !important;
-        background: #ff4b4b !important;
-        opacity: 0.25 !important;
-        filter: blur(20px) !important;
-        border-radius: 50% !important;
-        pointer-events: none !important;
-    }
-    .surge-card-header {
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: flex-start !important;
-        margin-bottom: 8px !important;
-    }
-    .surge-card-title {
-        margin: 0 !important;
-        color: #ff4b4b !important;
-        font-size: 1.35em !important;
-        font-weight: 800 !important;
-        text-shadow: 0 0 10px rgba(255, 75, 75, 0.5) !important;
-        line-height: 1.2 !important;
-    }
-    .surge-card-symbol {
-        font-size: 0.85em !important;
-        color: #8b949e !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.5px !important;
-    }
-    .surge-card-score {
-        background-color: #ff4b4b !important;
-        color: white !important;
-        padding: 3px 8px !important;
-        border-radius: 6px !important;
-        font-weight: 900 !important;
-        font-size: 0.75em !important;
-        box-shadow: 0 0 8px rgba(255, 75, 75, 0.6) !important;
-        border: 1px solid rgba(255,255,255,0.2) !important;
-    }
-    .surge-card-price {
-        font-size: 2.0em !important;
-        font-weight: 900 !important;
-        color: #ffffff !important;
-        margin: 12px 0 10px 0 !important;
-        line-height: 1.1 !important;
-        display: flex !important;
-        align-items: baseline !important;
-        gap: 2px !important;
-        text-shadow: 0 2px 10px rgba(0,0,0,0.5) !important;
-    }
-    .surge-card-price-suffix {
-        font-size: 0.5em !important;
-        font-weight: 700 !important;
-        color: #8b949e !important;
-        margin-left: 2px !important;
-    }
-    .surge-card-badges {
-        display: flex !important;
-        gap: 4px !important;
-        flex-wrap: wrap !important;
-        margin-bottom: 10px !important;
-    }
-    .surge-card-signals {
-        margin: 8px 0 0 0 !important;
-        font-size: 0.82em !important;
-        color: #e1e7ed !important;
-        line-height: 1.4 !important;
-        font-weight: 500 !important;
-        border-top: 1px solid rgba(255,255,255,0.08) !important;
-        padding-top: 8px !important;
+        color: #58a6ff;
     }
     
     /* 📱 스마트폰/모바일 환경 최적화 CSS (화면 가로 768px 이하) */
     @media (max-width: 768px) {
         /* 전체 화면 좌우상하 여백을 줄여서 스마트폰 화면을 넓게 사용 */
         .block-container {
-            padding-top: 1.0rem !important;
-            padding-left: 0.3rem !important;
-            padding-right: 0.3rem !important;
-            padding-bottom: 1.0rem !important;
+            padding-top: 1.5rem !important;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+            padding-bottom: 1.5rem !important;
         }
         
         /* 큰 텍스트(제목) 크기를 모바일에 맞게 축소하여 줄바꿈 최소화 */
-        h1 { font-size: 1.4rem !important; }
-        h2 { font-size: 1.15rem !important; }
-        h3 { font-size: 1.0rem !important; }
+        h1 { font-size: 1.6rem !important; }
+        h2 { font-size: 1.3rem !important; }
+        h3 { font-size: 1.1rem !important; }
         
         /* 터치하기 편하도록 버튼 요소들의 세로 길이를 살짝 늘리고 크기 조정 */
         .stButton > button {
             width: 100% !important;
-            min-height: 44px !important;
+            min-height: 50px !important;
             margin-bottom: 5px;
-            font-size: 0.85rem !important;
-            padding: 8px 12px !important;
         }
         
         /* 모바일에서는 표(DataFrame) 안의 글자 크기를 줄여 한눈에 많은 정보가 들어오도록 함 */
         [data-testid="stDataFrame"] {
-            font-size: 0.70rem !important;
+            font-size: 0.75rem !important;
         }
         
-        /* 라디오 버튼(필터링 선택 등) 레이아웃 글씨 축소 및 가로 배치 최적화 */
-        .stRadio > div {
-            gap: 6px !important;
-        }
+        /* 라디오 버튼(필터링 선택 등) 레이아웃 글씨 축소 */
         .stRadio > div > label {
-            font-size: 0.75rem !important;
-            padding: 4px 8px !important;
-        }
-
-        /* 탭 메뉴 디자인 모바일용 초컴팩트화 */
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 4px !important;
-            padding: 3px 6px !important;
-        }
-        .stTabs [data-baseweb="tab"] {
-            height: 32px !important;
-            font-size: 0.75rem !important;
-            padding: 0 8px !important;
-        }
-
-        /* 모바일에서 거시경제 지표 카드 컴팩트화 */
-        div[style*="backdrop-filter: blur(10px)"] {
-            padding: 6px 8px !important;
-            margin-bottom: 8px !important;
-        }
-        div[style*="backdrop-filter: blur(10px)"] > div {
-            font-size: 0.7rem !important;
-        }
-
-        /* 모바일에서 메트릭 카드 글씨 크기 줄이기 */
-        div[style*="backdrop-filter: blur(16px)"] {
-            padding: 10px 14px !important;
-            margin-bottom: 10px !important;
-        }
-        div[style*="backdrop-filter: blur(16px)"] > div > span {
-            font-size: 0.75em !important;
-        }
-        div[style*="backdrop-filter: blur(16px)"] > div[style*="font-size: 2.1em"] {
-            font-size: 1.5em !important;
-        }
-
-        /* 모바일에서 급등 임박 카드 컴팩트화 */
-        .surge-card {
-            padding: 12px 16px !important;
-            margin-bottom: 10px !important;
-            border-radius: 10px !important;
-        }
-        .surge-card-title {
-            font-size: 1.1em !important;
-        }
-        .surge-card-price {
-            font-size: 1.5em !important;
-            margin: 8px 0 6px 0 !important;
-        }
-        .surge-card-signals {
-            font-size: 0.76em !important;
-            padding-top: 6px !important;
+            font-size: 0.8rem !important;
         }
     }
     </style>
     """, unsafe_allow_html=True)
-
-def get_local_ip():
-    """PC의 내부 IP 주소를 가져옵니다."""
-    try:
-        import socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('10.255.255.255', 1))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except:
-        return '127.0.0.1'
 
 # --- Configuration Management ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 
 def load_config():
-    """설정 정보를 불러옵니다. (클라우드 Secrets 우선, 로컬 파일 후순위)"""
-    # 1. Streamlit Cloud Secrets 확인 (배포 환경 보안)
-    if hasattr(st, "secrets"):
-        try:
-            token = st.secrets.get("telegram_token")
-            chat_id = st.secrets.get("telegram_chat_id")
-            if token and chat_id:  # Secrets에 토큰과 채팅 ID가 정상 등록된 경우에만 사용
-                return {
-                    "telegram_token": token,
-                    "telegram_chat_id": chat_id,
-                    "auto_send": st.secrets.get("auto_send", False),
-                    "custom_url": st.secrets.get("custom_url", "")
-                }
-        except:
-            pass
-
-    # 2. 로컬 파일 확인
     if os.path.exists(CONFIG_FILE):
         try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+            with open(CONFIG_FILE, "r") as f:
                 return json.load(f)
         except:
             return {"telegram_token": "", "telegram_chat_id": "", "auto_send": False, "custom_url": ""}
@@ -549,498 +277,483 @@ def get_special_stocks(results):
     # 신호 강도 순으로 정렬 후 TOP 10 반환
     return sorted(special, key=lambda x: (x.get('total_signals', 0), x['score']), reverse=True)[:10]
 
-def convert_to_tradingview_symbol(symbol, market):
-    """일반 심볼을 트레이딩뷰 전용 심볼 포맷으로 변환합니다."""
-    symbol = symbol.upper().strip()
-    if market == 'COIN' or market == '암호화폐 (Upbit)':
-        if '-' in symbol:
-            parts = symbol.split('-')
-            if len(parts) == 2:
-                quote, base = parts[0], parts[1]
-                if quote == 'KRW':
-                    return f"UPBIT:{base}KRW"
-                elif quote == 'BTC':
-                    return f"UPBIT:{base}BTC"
-                else:
-                    return f"UPBIT:{base}{quote}"
-        return f"UPBIT:{symbol}KRW"
-    elif market == 'KR' or market == '한국 (KRX)':
-        if symbol.isdigit():
-            return f"KRX:{symbol}"
-        return f"KRX:{symbol}"
-    elif market == 'US' or market == '미국 (US)':
-        return f"NASDAQ:{symbol}"
-    return symbol
-
-def clean_html(html_str):
-    """HTML 문자열 내부의 연속된 빈 줄을 정리하되, HTML 블록 파싱을 위해 줄바꿈은 보존합니다."""
-    import re
-    # 연속된 줄바꿈(빈 줄)을 단일 줄바꿈으로 정리
-    cleaned = re.sub(r'\n\s*\n', '\n', html_str)
-    # 각 라인의 좌우 공백을 제거하되 줄바꿈은 보존
-    lines = [line.strip() for line in cleaned.split('\n') if line.strip()]
-    return '\n'.join(lines)
-
-def render_premium_metric(label, value, suffix="", color=None):
-    """다크 테마 고정 환경에서 극도로 눈에 띄고 입체적인 Glassmorphism 네온 메트릭 카드를 렌더링합니다."""
-    # 네온 테마 색상 지정
-    accent_color = color if color else "#58a6ff"
-    
-    # 종합 점수일 때 고휘도 네온 색상으로 매핑하여 가시성 극대화
-    if suffix == "점" or label == "종합 점수":
-        try:
-            score_val = int(''.join(filter(str.isdigit, str(value))))
-        except:
-            score_val = 50
-            
-        if score_val >= 70:
-            accent_color = "#26a69a"  # 초고휘도 에메랄드 네온 그린
-        elif score_val >= 40:
-            accent_color = "#f1c40f"  # 초고휘도 네온 옐로우
-        else:
-            accent_color = "#ef5350"  # 초고휘도 네온 레드
-            
-    border_style = f"border: 2px solid {accent_color}cc !important;"  # 보더 두께 2px로 확장 및 선명도 증대
-    shadow_style = f"box-shadow: 0 0 20px {accent_color}44, 0 12px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.2) !important;"  # 네온 글로우 및 입체 쉐도우 대폭 강화
-    bg_style = "background: linear-gradient(135deg, rgba(28, 33, 46, 0.95) 0%, rgba(16, 20, 28, 0.99) 100%) !important;"  # 더 깊고 매혹적인 어두운 배경 그라데이션
-    
-    emoji = "💵" if label == "현재가" else "🏆"
-    
-    return clean_html(f"""
-    <div style="
-        {bg_style}
-        backdrop-filter: blur(16px) !important;
-        -webkit-backdrop-filter: blur(16px) !important;
-        {border_style}
-        border-radius: 14px !important;
-        padding: 18px 22px !important;
-        margin-bottom: 16px !important;
-        {shadow_style}
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-        position: relative !important;
-        overflow: hidden !important;
-    ">
-        <!-- 네온 광원 효과 데코레이션 극대화 -->
-        <div style="
-            position: absolute !important;
-            top: -30px !important;
-            right: -30px !important;
-            width: 100px !important;
-            height: 100px !important;
-            background: {accent_color} !important;
-            opacity: 0.22 !important;
-            filter: blur(25px) !important;
-            border-radius: 50% !important;
-            pointer-events: none !important;
-        "></div>
-        
-        <div style="
-            display: flex !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            margin-bottom: 8px !important;
-        ">
-            <span style="font-size: 0.88em !important; color: #8b949e !important; font-weight: 700 !important; letter-spacing: 1px !important; text-transform: uppercase !important;">{label}</span>
-            <span style="font-size: 1.3em !important; filter: drop-shadow(0 0 5px {accent_color}55) !important;">{emoji}</span>
-        </div>
-        
-        <div style="
-            font-size: 2.1em !important; 
-            font-weight: 900 !important; 
-            color: {accent_color} !important; 
-            display: flex !important; 
-            align-items: baseline !important; 
-            gap: 3px !important; 
-            line-height: 1.15 !important; 
-            letter-spacing: -0.5px !important;
-            text-shadow: 0 0 15px {accent_color}77 !important; /* 글자 광원 극대화 */
-        ">
-            <span style="color: {accent_color} !important;">{value}</span>
-            <span style="font-size: 0.52em !important; font-weight: 700 !important; color: #8b949e !important; margin-left: 3px !important; text-shadow: none !important;">{suffix}</span>
-        </div>
-    </div>
-    """)
-
-def render_premium_signals(signals_str):
-    """실시간 기술적 감지 신호를 두 번째 이미지의 Antigravity 대시보드 스타일의 정갈하고 뚜렷한 리스트로 변환합니다."""
-    signals = [s.strip() for s in str(signals_str).split(',') if s.strip()]
-    if not signals:
-        return clean_html(f"""
-        <div style="padding: 15px !important; color: #8b949e !important; font-size: 0.9em !important; text-align: center !important; background: rgba(22, 27, 34, 0.95) !important; border-radius: 8px !important;">
-            감지된 신호가 없습니다.
-        </div>
-        """)
-        
-    items_html = ""
-    for sig in signals:
-        icon = "📈"
-        if any(k in sig for k in ["세력", "매집", "OBV"]):
-            icon = "📡"
-        elif any(k in sig for k in ["256", "정배열", "이평선"]):
-            icon = "⚡"
-        elif any(k in sig for k in ["골드", "이슬", "준S", "멘토"]):
-            icon = "🏆"
-        elif any(k in sig for k in ["돌파", "상승", "급등"]):
-            icon = "🚀"
-        elif any(k in sig for k in ["과매도", "낙폭", "변곡"]):
-            icon = "✨"
-        
-        items_html += f"""
-        <div style="
-            display: flex !important;
-            align-items: center !important;
-            gap: 10px !important;
-            padding: 10px 14px !important;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
-            font-size: 0.9em !important;
-            color: #ecf0f1 !important;
-            text-align: left !important;
-        ">
-            <span style="font-size: 1.25em !important; line-height: 1 !important;">{icon}</span>
-            <span style="font-weight: 500 !important; color: #f0f6fc !important; line-height: 1.4 !important;">{sig}</span>
-        </div>
-        """
-        
-    return clean_html(f"""
-    <div style="
-        background: rgba(22, 27, 34, 0.95) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 8px !important;
-        overflow: hidden !important;
-        margin-bottom: 16px !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
-    ">
-        {items_html}
-    </div>
-    """)
-
-def render_premium_expert_opinion(action, action_desc):
-    """전문가 의견을 세련된 그라데이션 및 Glassmorphism 액션 배지로 렌더링합니다."""
-    is_buy = action == 'BUY'
-    bg_color = "rgba(38, 166, 154, 0.15)" if is_buy else "rgba(52, 152, 219, 0.15)"
-    text_color = "#26a69a" if is_buy else "#3498db"
-    border_color = "rgba(38, 166, 154, 0.3)" if is_buy else "rgba(52, 152, 219, 0.3)"
-    badge_label = "🔥 적극 분할 매수 유효" if is_buy else "💡 관망 및 분할 접근"
-    
-    return clean_html(f"""
-    <div style="
-        background: {bg_color} !important;
-        border: 1px solid {border_color} !important;
-        border-radius: 8px !important;
-        padding: 14px 16px !important;
-        margin-top: 5px !important;
-        margin-bottom: 15px !important;
-        text-align: center !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
-    ">
-        <div style="font-size: 0.75em !important; color: #8b949e !important; font-weight: 600 !important; text-transform: uppercase !important; letter-spacing: 1px !important; margin-bottom: 4px !important;">AI Recommendation</div>
-        <div style="font-size: 1.15em !important; font-weight: 700 !important; color: {text_color} !important; letter-spacing: -0.2px !important;">{badge_label}</div>
-        <div style="font-size: 0.85em !important; color: #f0f6fc !important; margin-top: 5px !important; font-weight: 500 !important; line-height: 1.4 !important; text-align: center !important;">{action_desc}</div>
-    </div>
-    """)
-
-def render_premium_strategy_grid(selected_data):
-    """6대 전문가 전략 매칭 상태를 모던하고 깔끔한 Glassmorphism 그리드로 렌더링합니다."""
-    signals_str = str(selected_data.get('signals', ''))
-    
-    # 1. 주식단테 판정
-    dante_status = "미달"
-    dante_color = "#4d5666"
-    dante_bg = "rgba(77, 86, 102, 0.15)"
-    if "밥그릇" in signals_str:
-        dante_status = "밥그릇 3번"
-        dante_color = "#26a69a"
-        dante_bg = "rgba(38, 166, 154, 0.15)"
-    elif "256" in signals_str:
-        dante_status = "256 스윙"
-        dante_color = "#3498db"
-        dante_bg = "rgba(52, 152, 219, 0.15)"
-        
-    # 2. 고쨱짹 판정
-    go_status = "미달"
-    go_color = "#4d5666"
-    go_bg = "rgba(77, 86, 102, 0.15)"
-    if "고쨱짹" in signals_str:
-        go_status = "박스돌파"
-        go_color = "#26a69a"
-        go_bg = "rgba(38, 166, 154, 0.15)"
-        
-    # 3. 홍인기 판정
-    hong_status = "미달"
-    hong_color = "#4d5666"
-    hong_bg = "rgba(77, 86, 102, 0.15)"
-    if "홍인기" in signals_str:
-        hong_status = "주도대장주"
-        hong_color = "#26a69a"
-        hong_bg = "rgba(38, 166, 154, 0.15)"
-    elif "끼" in signals_str:
-        hong_status = "끼 보유주"
-        hong_color = "#f1c40f"
-        hong_bg = "rgba(241, 196, 15, 0.15)"
-        
-    # 4. AP투자연구소 판정
-    ap_status = "미달"
-    ap_color = "#4d5666"
-    ap_bg = "rgba(77, 86, 102, 0.15)"
-    if "AP-김용재" in signals_str:
-        ap_status = "맥점돌파"
-        ap_color = "#26a69a"
-        ap_bg = "rgba(38, 166, 154, 0.15)"
-        
-    # 5. 오로라 판정
-    aurora_val = selected_data.get('aurora', {})
-    aurora_sig = aurora_val.get('signal', False) if isinstance(aurora_val, dict) else False
-    aurora_status = "미달"
-    aurora_color = "#4d5666"
-    aurora_bg = "rgba(77, 86, 102, 0.15)"
-    if aurora_sig:
-        aurora_status = "과매도반등"
-        aurora_color = "#26a69a"
-        aurora_bg = "rgba(38, 166, 154, 0.15)"
-        
-    # 6. 퓨처온 판정
-    fo_val = selected_data.get('futureon', {})
-    fo_sig = False
-    if isinstance(fo_val, dict):
-        fo_sig = fo_val.get('isle') or fo_val.get('shintae') or fo_val.get('juns')
-    fo_status = "미달"
-    fo_color = "#4d5666"
-    fo_bg = "rgba(77, 86, 102, 0.15)"
-    if fo_sig:
-        fo_status = "멘토 신호"
-        fo_color = "#26a69a"
-        fo_bg = "rgba(38, 166, 154, 0.15)"
-
-    return clean_html(f"""
-    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
-        <!-- 주식단테 -->
-        <div style="background: rgba(30, 34, 42, 0.35); border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div>
-                <div style="font-size: 0.85em; font-weight: 600; color: inherit;">🥣 주식단테</div>
-                <div style="font-size: 0.70em; color: inherit; opacity: 0.55; margin-top: 1px;">밥그릇 & 256 기법</div>
-            </div>
-            <span style="color: {dante_color}; background: {dante_bg}; font-size: 0.70em; padding: 3px 8px; border-radius: 5px; font-weight: bold; border: 1px solid {dante_color}33;">
-                {dante_status}
-            </span>
-        </div>
-        
-        <!-- 고쨱짹 -->
-        <div style="background: rgba(30, 34, 42, 0.35); border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div>
-                <div style="font-size: 0.85em; font-weight: 600; color: inherit;">📦 고쨱짹</div>
-                <div style="font-size: 0.70em; color: inherit; opacity: 0.55; margin-top: 1px;">박스돌파 & 거봉</div>
-            </div>
-            <span style="color: {go_color}; background: {go_bg}; font-size: 0.70em; padding: 3px 8px; border-radius: 5px; font-weight: bold; border: 1px solid {go_color}33;">
-                {go_status}
-            </span>
-        </div>
-        
-        <!-- 대왕개미 홍인기 -->
-        <div style="background: rgba(30, 34, 42, 0.35); border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div>
-                <div style="font-size: 0.85em; font-weight: 600; color: inherit;">🐜 홍인기</div>
-                <div style="font-size: 0.70em; color: inherit; opacity: 0.55; margin-top: 1px;">대장주 & 끼분석</div>
-            </div>
-            <span style="color: {hong_color}; background: {hong_bg}; font-size: 0.70em; padding: 3px 8px; border-radius: 5px; font-weight: bold; border: 1px solid {hong_color}33;">
-                {hong_status}
-            </span>
-        </div>
-        
-        <!-- AP투자연구소 -->
-        <div style="background: rgba(30, 34, 42, 0.35); border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div>
-                <div style="font-size: 0.85em; font-weight: 600; color: inherit;">🚀 AP-김용재</div>
-                <div style="font-size: 0.70em; color: inherit; opacity: 0.55; margin-top: 1px;">돌파 맥점판정</div>
-            </div>
-            <span style="color: {ap_color}; background: {ap_bg}; font-size: 0.70em; padding: 3px 8px; border-radius: 5px; font-weight: bold; border: 1px solid {ap_color}33;">
-                {ap_status}
-            </span>
-        </div>
-        
-        <!-- 오로라 검색기 -->
-        <div style="background: rgba(30, 34, 42, 0.35); border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div>
-                <div style="font-size: 0.85em; font-weight: 600; color: inherit;">✨ 오로라</div>
-                <div style="font-size: 0.70em; color: inherit; opacity: 0.55; margin-top: 1px;">낙폭과대 반등</div>
-            </div>
-            <span style="color: {aurora_color}; background: {aurora_bg}; font-size: 0.70em; padding: 3px 8px; border-radius: 5px; font-weight: bold; border: 1px solid {aurora_color}33;">
-                {aurora_status}
-            </span>
-        </div>
-        
-        <!-- 퓨처온 멘토군단 -->
-        <div style="background: rgba(30, 34, 42, 0.35); border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-            <div>
-                <div style="font-size: 0.85em; font-weight: 600; color: inherit;">🏆 퓨처온</div>
-                <div style="font-size: 0.70em; color: inherit; opacity: 0.55; margin-top: 1px;">멘토 핵심수식</div>
-            </div>
-            <span style="color: {fo_color}; background: {fo_bg}; font-size: 0.70em; padding: 3px 8px; border-radius: 5px; font-weight: bold; border: 1px solid {fo_color}33;">
-                {fo_status}
-            </span>
-        </div>
-    </div>
-    """)
-
 def display_detailed_chart(symbol, market):
-    """선택된 종목의 상세 차트를 표시합니다. (가상화폐는 트레이딩뷰 실시간, 주식은 초프리미엄 3단 Plotly)"""
-    
-    # 1. 가상화폐 (COIN) 일 때는 트레이딩뷰 실시간 차트 위젯 렌더링
-    if market == 'COIN' or market == '암호화폐 (Upbit)':
-        tv_symbol = convert_to_tradingview_symbol(symbol, market)
-        widget_html = f"""
-        <div class="tradingview-widget-container" style="height: 520px; width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid #30363d; box-shadow: 0 4px 20px rgba(0,0,0,0.4);">
-          <div id="tradingview_chart" style="height: 520px; width: 100%;"></div>
-          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-          <script type="text/javascript">
-          new TradingView.widget(
-            {{
-              "width": "100%",
-              "height": 520,
-              "symbol": "{tv_symbol}",
-              "interval": "D",
-              "timezone": "Asia/Seoul",
-              "theme": "dark",
-              "style": "1",
-              "locale": "ko",
-              "toolbar_bg": "#131722",
-              "enable_publishing": false,
-              "hide_side_toolbar": false,
-              "allow_symbol_change": true,
-              "save_image": false,
-              "container_id": "tradingview_chart"
-            }}
-          );
-          </script>
-        </div>
-        """
-        import streamlit.components.v1 as components
-        components.html(widget_html, height=530)
-        return
-
-    # 2. 주식 (KRX/US) 일 때는 초프리미엄 3단 Plotly 렌더링
+    """선택된 종목의 상세 캔들스틱 차트를 표시합니다."""
+    # 데이터 가져오기 (최근 120일)
     df = scanner.get_historical_data(symbol, market, days=120)
     if df is None or df.empty:
         st.error(f"{symbol} 데이터를 불러오지 못했습니다.")
         return
 
-    # 기술 지표 계산
+    # 기술 지표 계산 (이동평균선)
     df['MA20'] = df['Close'].rolling(window=20).mean()
     df['MA60'] = df['Close'].rolling(window=60).mean()
     df['MA120'] = df['Close'].rolling(window=120).mean()
     
-    # RSI 계산
+    # RSI 계산 (이미 scanner에 로직이 있으나 차트용으로 재계산 또는 사용)
     delta = df['Close'].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
     rs = gain / loss
     df['RSI'] = 100 - (100 / (1 + rs))
 
+    # Plotly 차트 생성
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
-    # 3단 서브플롯 구성 (1단: 캔들스틱/맥점, 2단: 거래량, 3단: RSI)
-    fig = make_subplots(
-        rows=3, cols=1, 
-        shared_xaxes=True, 
-        vertical_spacing=0.04, 
-        subplot_titles=(f'📈 {symbol} 캔들스틱 & 전문가 수식', '📊 거래량 (Volume)', '⚡ RSI 보조지표'),
-        row_heights=[0.55, 0.20, 0.25]
-    )
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, 
+                        vertical_spacing=0.1, subplot_titles=(f'📈 {symbol} 캔들스틱', '📊 RSI 지표'),
+                        row_heights=[0.7, 0.3])
 
-    # --- 1단: 캔들스틱 및 전문가 핵심 수식 ---
-    fig.add_trace(go.Candlestick(
-        x=df.index, 
-        open=df['Open'], 
-        high=df['High'], 
-        low=df['Low'], 
-        close=df['Close'], 
-        name='주가',
-        increasing_line_color='#26a69a',  # 트레이딩뷰 에메랄드 그린
-        decreasing_line_color='#ef5350',  # 트레이딩뷰 네온 로즈 레드
-        increasing_fillcolor='#26a69a',
-        decreasing_fillcolor='#ef5350'
-    ), row=1, col=1)
+    # 1. 캔들스틱 추가
+    fig.add_trace(go.Candlestick(x=df.index, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='Price'), row=1, col=1)
     
-    # 기본 이평선 (은은하게 처리)
-    fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='rgba(255,255,255,0.25)', width=1), name='MA20'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=df.index, y=df['MA60'], line=dict(color='rgba(255,165,0,0.25)', width=1), name='MA60'), row=1, col=1)
-    fig.add_trace(go.Scatter(x=df.index, y=df['MA120'], line=dict(color='rgba(255,0,0,0.25)', width=1), name='MA120'), row=1, col=1)
+    # 2. 이동평균선 및 Future On 지표 추가
+    # 기본 이평선
+    fig.add_trace(go.Scatter(x=df.index, y=df['MA20'], line=dict(color='rgba(255,255,255,0.4)', width=1), name='MA20'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df.index, y=df['MA60'], line=dict(color='rgba(255,165,0,0.4)', width=1), name='MA60'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=df.index, y=df['MA120'], line=dict(color='rgba(255,0,0,0.4)', width=1), name='MA120'), row=1, col=1)
 
-    # 🏆 퓨처온 핵심 지표
+    # 🏆 퓨처온 핵심 지표 (강조)
     if 'GoldLine' in df.columns:
-        fig.add_trace(go.Scatter(x=df.index, y=df['GoldLine'], line=dict(color='#ffd700', width=2.5), name='🏆 골드라인 (EMA 33)'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['GoldLine'], line=dict(color='#f1c40f', width=2), name='🏆 골드라인 (EMA 33)'), row=1, col=1)
     
     if 'WhaleLine' in df.columns:
-        fig.add_trace(go.Scatter(x=df.index, y=df['WhaleLine'], line=dict(color='#a855f7', width=2.5, dash='dash'), name='🐳 세력선 (EMA 448)'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['WhaleLine'], line=dict(color='#9b59b6', width=2, dash='dash'), name='🐳 세력선 (EMA 448)'), row=1, col=1)
 
-    # 볼린저 밴드
+    # 볼린저 밴드 (NS밴드)
     if 'BB_High' in df.columns and 'BB_Low' in df.columns:
-        fig.add_trace(go.Scatter(x=df.index, y=df['BB_High'], line=dict(color='rgba(173, 216, 230, 0.08)'), showlegend=False, name='BB High'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Low'], line=dict(color='rgba(173, 216, 230, 0.08)'), fill='tonexty', showlegend=False, name='BB Low'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_High'], line=dict(color='rgba(173, 216, 230, 0.1)'), showlegend=False, name='BB High'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Low'], line=dict(color='rgba(173, 216, 230, 0.1)'), fill='tonexty', showlegend=False, name='BB Low'), row=1, col=1)
 
-    # 수평 지지/저항선
+    # 3. 수평 지지/저항선 (Horizontal Levels)
+    # scanner 인스턴스가 add_indicators를 내부에서 호출하면서 self.horizontal_levels를 설정하도록 되어 있음
     if hasattr(scanner, 'horizontal_levels') and scanner.horizontal_levels:
         for level in scanner.horizontal_levels:
-            fig.add_hline(y=level, line_dash="dot", line_color="rgba(255,255,255,0.15)", 
+            fig.add_hline(y=level, line_dash="dot", line_color="rgba(255,255,255,0.2)", 
                           annotation_text=f"S/R: {level:,.0f}", annotation_position="bottom right", row=1, col=1)
 
-    # --- 2단: 거래량 막대 그래프 ---
-    volume_colors = []
-    for idx, r in df.iterrows():
-        if r['Close'] >= r['Open']:
-            volume_colors.append('rgba(38, 166, 154, 0.55)')  # 상승 반투명 그린
-        else:
-            volume_colors.append('rgba(239, 83, 80, 0.55)')  # 하락 반투명 로즈 레드
-            
-    fig.add_trace(go.Bar(
-        x=df.index,
-        y=df['Volume'],
-        name='거래량',
-        marker_color=volume_colors,
-        showlegend=False
-    ), row=2, col=1)
+    # 4. RSI 추가
+    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='cyan', width=1.5), name='RSI'), row=2, col=1)
+    fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
+    fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
 
-    # --- 3단: RSI 보조지표 ---
-    fig.add_trace(go.Scatter(x=df.index, y=df['RSI'], line=dict(color='#00e5ff', width=2), name='RSI'), row=3, col=1)
-    fig.add_hline(y=70, line_dash="dash", line_color="rgba(239, 83, 80, 0.4)", row=3, col=1)
-    fig.add_hline(y=30, line_dash="dash", line_color="rgba(38, 166, 154, 0.4)", row=3, col=1)
-
-    # 차트 전체 스타일링 (트레이딩뷰 프리미엄 다크)
-    fig.update_layout(
-        height=800,
-        template="plotly_dark",
-        plot_bgcolor='#131722',  # 트레이딩뷰 특유의 딥 다크 블루
-        paper_bgcolor='#0e1117',
-        showlegend=True, 
-        xaxis_rangeslider_visible=False, 
-        margin=dict(l=10, r=10, t=40, b=10),
-        legend=dict(
-            orientation="h", 
-            yanchor="bottom", 
-            y=1.02, 
-            xanchor="right", 
-            x=1,
-            font=dict(size=10)
-        )
-    )
-
-    # 초정밀 투명 격자선 설정
-    fig.update_xaxes(
-        gridcolor='rgba(255, 255, 255, 0.04)', 
-        linecolor='rgba(255, 255, 255, 0.1)',
-        zeroline=False
-    )
-    fig.update_yaxes(
-        gridcolor='rgba(255, 255, 255, 0.04)', 
-        linecolor='rgba(255, 255, 255, 0.1)',
-        zeroline=False
-    )
+    fig.update_layout(height=700, template="plotly_dark", showlegend=True, 
+                      xaxis_rangeslider_visible=False, margin=dict(l=10, r=10, t=40, b=10),
+                      legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     
     st.plotly_chart(fig, use_container_width=True)
 
 # --- Portfolio Management ---
 # 실행 환경에 구애받지 않도록 절대 경로 사용
 PORTFOLIO_FILE = os.path.join(BASE_DIR, "portfolio.json")
+
+# 쉐도잉 & 백과사전 파일 경로 설정
+SHADOWING_FILE = os.path.join(BASE_DIR, "shadowing_dictionary.json")
+
+def initialize_default_shadowing_data():
+    """기본 주도 테마 백과사전 및 쉐도잉 일지 예시 데이터를 반환합니다."""
+    import datetime
+    t_day = datetime.datetime.now().strftime('%Y-%m-%d')
+    return {
+        "dictionary": [
+            {
+                "id": "theme_001",
+                "theme": "반도체 HBM / CXL",
+                "stocks": "한미반도체, 네오셈, 삼성전자, SK하이닉스",
+                "reason": "엔비디아향 HBM3E/HBM4 공급 경쟁 본격화 및 AI 고성능 컴퓨팅을 위한 차세대 CXL 2.0 규격 메모리 모듈 부각",
+                "last_updated": t_day
+            },
+            {
+                "id": "theme_002",
+                "theme": "인공지능 (AI) 온디바이스",
+                "stocks": "제주반도체, 오픈엣지테크놀로지, 리노공업, 칩스앤미디어",
+                "reason": "클라우드를 거치지 않고 단말기 자체에서 AI를 수행하는 온디바이스 기기 개화로 저전력 메모리 반도체 및 NPU IP 설계 가치 폭등",
+                "last_updated": t_day
+            },
+            {
+                "id": "theme_003",
+                "theme": "초전도체 (LK-99 / PCPOSOS)",
+                "stocks": "신성델타테크, 파워로직스, 서남, 덕성",
+                "reason": "상온 초전도체 개발 주장 및 국내외 연구진의 학회 발표, 교차 검증 소식이 전해질 때마다 테마 전체가 극도의 변동성을 보이며 급등락",
+                "last_updated": t_day
+            },
+            {
+                "id": "theme_004",
+                "theme": "2차전지 (양극재 / 리튬)",
+                "stocks": "에코프로, 에코프로비엠, 포스코퓨처엠, 금양, 엘앤에프",
+                "reason": "글로벌 친환경 탄소 제로 정책 수혜 및 북미 시장 중심의 대규모 배터리 핵심 양극소재 장기 공급 계약 수주에 따른 고성장성 부각",
+                "last_updated": t_day
+            }
+        ],
+        "records": [
+            {
+                "date": t_day,
+                "keyword": "반도체",
+                "stocks": "한미반도체, 네오셈",
+                "reason": "기관/외인의 HBM 대량 순매수 유입 및 차세대 반도체 공정 가속화에 따른 강력한 상승 국면 진입"
+            }
+        ]
+    }
+
+def load_shadowing_data():
+    """로컬 JSON에서 쉐도잉 데이터를 불러옵니다. 파일이 없을 경우 기본값을 생성합니다."""
+    if os.path.exists(SHADOWING_FILE):
+        try:
+            with open(SHADOWING_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                # 데이터 정합성 검증
+                if "dictionary" not in data: data["dictionary"] = []
+                if "records" not in data: data["records"] = []
+                
+                # [자동 보정] 과거 샘플 구식 날짜(2026-05-23 등)를 오늘 날짜로 자동 마이그레이션 최신화
+                import datetime
+                t_day = datetime.datetime.now().strftime('%Y-%m-%d')
+                updated_flag = False
+                for entry in data.get("dictionary", []):
+                    if entry.get("last_updated") == "2026-05-23":
+                        entry["last_updated"] = t_day
+                        updated_flag = True
+                
+                if updated_flag:
+                    save_shadowing_data(data)
+                    
+                return data
+        except Exception as e:
+            st.error(f"쉐도잉 데이터 로드 중 오류 발생: {e}")
+            return initialize_default_shadowing_data()
+    else:
+        # 파일이 없으면 기본 데이터로 초기화
+        data = initialize_default_shadowing_data()
+        save_shadowing_data(data)
+        return data
+
+def save_shadowing_data(data):
+    """쉐도잉 데이터를 로컬 JSON에 저장합니다."""
+    try:
+        with open(SHADOWING_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"쉐도잉 데이터 저장 실패: {e}")
+        return False
+
+def sync_realtime_shadowing_data(scanner):
+    """실시간 한국 시장(KRX) 데이터를 분석하여 상승률 15% 이상 & 거래대금 500억 이상 터진 주도주를 자동으로 쉐도잉 및 백과사전에 반영합니다. (미달 시 300억으로 자동 완화 적용)"""
+    import datetime
+    import pandas as pd
+    import FinanceDataReader as fdr
+    import time
+    
+    try:
+        # 1. KRX 전체 종목 조회
+        df_krx = fdr.StockListing('KRX')
+        if df_krx is None or df_krx.empty:
+            return False, "KRX 시장 정보를 실시간으로 가져올 수 없습니다."
+            
+        # 필요한 컬럼 정제 및 존재 확인
+        if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
+            df_krx['Code'] = df_krx['Symbol']
+        
+        # 등락률 컬럼명 확인 (대소문자 구분 없이 Ratio, Rate, Chg, 등락 등이 포함된 컬럼 매칭)
+        chg_col = None
+        for col in df_krx.columns:
+            c_low = col.lower()
+            if 'ratio' in c_low or 'rate' in c_low or 'chg' in c_low or '등락' in col:
+                chg_col = col
+                break
+                
+        # 거래대금 컬럼명 확인 (대소문자 구분 없이 Amount, Value, Amt, 대금 등이 포함된 컬럼 매칭)
+        amt_col = None
+        for col in df_krx.columns:
+            c_low = col.lower()
+            if 'amount' in c_low or 'value' in c_low or 'amt' in c_low or '대금' in col:
+                amt_col = col
+                break
+        
+        df = df_krx.copy()
+        
+        # 등락률 및 거래대금 변환
+        if chg_col:
+            df[chg_col] = pd.to_numeric(df[chg_col], errors='coerce').fillna(0.0)
+        else:
+            return False, "주가 등락률 데이터를 찾을 수 없습니다."
+            
+        if amt_col:
+            df[amt_col] = pd.to_numeric(df[amt_col], errors='coerce').fillna(0.0)
+        else:
+            return False, "거래대금 데이터를 찾을 수 없습니다."
+            
+        # 2. 거래대금 스케일 감지 및 정제 (FinanceDataReader에 따라 원 단위 또는 백만 원 단위일 수 있음)
+        max_amt = df[amt_col].max()
+        # 한국 시장 기준 500억 = 50,000,000,000 원. 
+        # 500억 임계치 설정 (거래대금 최대치 기준으로 단위를 동적 감지)
+        if max_amt > 1e9: # 원 단위
+            limit_500b = 50000000000
+            limit_300b = 30000000000
+        elif max_amt > 1e6: # 천 원 단위
+            limit_500b = 50000000
+            limit_300b = 30000000
+        else: # 백만 원 단위
+            limit_500b = 50000
+            limit_300b = 30000
+            
+        # 등락률도 퍼센트 단위(15.0)인지 소수점 단위(0.15)인지 감지
+        max_chg = df[chg_col].max()
+        chg_threshold = 15.0 if max_chg > 1.0 else 0.15
+        
+        # 3. 1차 필터링 (상승률 15% 이상 & 거래대금 500억 이상)
+        df_leaders = df[(df[chg_col] >= chg_threshold) & (df[amt_col] >= limit_500b)]
+        
+        # 만약 500억 이상 종목이 없으면, 300억 이상으로 완화
+        if df_leaders.empty:
+            df_leaders = df[(df[chg_col] >= chg_threshold) & (df[amt_col] >= limit_300b)]
+            
+        if df_leaders.empty:
+            return False, "오늘 조건(상승률 15% 이상, 거래대금 300억 이상)을 만족하는 주도주가 없습니다."
+            
+        # 4. 분석 진행 및 테마 추출
+        shadow_data = load_shadowing_data()
+        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+        
+        added_stocks = []
+        themes_detected = {} # theme_name -> stocks_list
+        
+        for _, row in df_leaders.iterrows():
+            code = row['Code']
+            name = row.get('Name', code)
+            
+            # StockScanner 분석을 통해 신호 및 테마 융합
+            analysis = scanner.analyze_stock(code, 'KR')
+            if analysis:
+                signals = analysis.get('signals', '')
+                score = analysis.get('score', 50)
+                
+                # 강한 세력 수급 신호가 포착된 종목들만 등록
+                if score >= 60 or "세력" in signals or "수급" in signals or "골드" in signals or "밥그릇" in signals:
+                    added_stocks.append(name)
+                    theme_found = "실시간 급등주"
+                    themes_detected.setdefault(theme_found, []).append(name)
+        
+        if not added_stocks:
+            return False, "조건은 만족했으나 세력 신호 기준 점수를 넘는 핵심 주도주가 없습니다."
+            
+        # 5. 백과사전(dictionary) 테마 자동 등재 및 병합 갱신
+        # 기존 모든 테마의 last_updated 날짜를 오늘 날짜로 일괄 동적 갱신
+        for entry in shadow_data.get("dictionary", []):
+            entry["last_updated"] = today_str
+            
+        for theme_name, stocks_list in themes_detected.items():
+            if theme_name == "실시간 급등주":
+                theme_name = f"당일 급등 수급주 ({today_str})"
+                
+            theme_exists = False
+            for entry in shadow_data.get("dictionary", []):
+                if entry.get("theme") == theme_name:
+                    theme_exists = True
+                    # 기존 종목에 추가 (중복 제거)
+                    existing_stocks = [s.strip() for s in entry.get("stocks", "").split(",") if s.strip()]
+                    for s in stocks_list:
+                        if s not in existing_stocks:
+                            existing_stocks.append(s)
+                    entry["stocks"] = ", ".join(existing_stocks)
+                    entry["last_updated"] = today_str
+                    entry["reason"] = f"({today_str} 실시간 자동 갱신) " + entry.get("reason", "")
+                    break
+                    
+            if not theme_exists:
+                new_id = f"theme_auto_{int(time.time())}_{hash(theme_name)%1000}"
+                new_theme_auto = {
+                    "id": new_id,
+                    "theme": theme_name,
+                    "stocks": ", ".join(stocks_list),
+                    "reason": f"({today_str} 실시간 자동 등재) 오늘 거래대금 급증 및 강한 세력 수급 신호가 발생한 당일 시장 주도주/테마군입니다.",
+                    "last_updated": today_str
+                }
+                shadow_data["dictionary"].append(new_theme_auto)
+                
+        # 쉐도잉 일지(records) 추가 (당일 키워드 통합 기록)
+        record_exists = False
+        for rec in shadow_data.get("records", []):
+            if rec.get("date") == today_str:
+                record_exists = True
+                existing_stocks = [s.strip() for s in rec.get("stocks", "").split(",") if s.strip()]
+                for s in added_stocks:
+                    if s not in existing_stocks:
+                        existing_stocks.append(s)
+                rec["stocks"] = ", ".join(existing_stocks)
+                rec["reason"] = f"({today_str} 실시간 수급 합산) " + rec.get("reason", "")
+                break
+                
+        if not record_exists:
+            new_record = {
+                "date": today_str,
+                "keyword": "실시간수급주",
+                "stocks": ", ".join(added_stocks),
+                "reason": f"({today_str} 자동 기록) 한국 시장 당일 거래대금 및 등락률 최상위권의 강력한 주도 세력 유입 종목군"
+            }
+            shadow_data["records"].insert(0, new_record) # 최신글이 맨 위로
+            
+        # 6. 로컬 JSON 저장
+        if save_shadowing_data(shadow_data):
+            return True, f"✅ 실시간 한국 시장 주도주 {len(added_stocks)}개가 백과사전 및 쉐도잉 일지에 안전하게 반영되었습니다! (분석일자: {today_str})"
+        else:
+            return False, "동기화된 데이터를 로컬 파일에 저장하는 데 실패했습니다."
+            
+    except Exception as e:
+        return False, f"실시간 데이터 반영 에러: {str(e)}"
+
+def render_trading_price_guide(symbol, market_code):
+    """세력 평단을 단기, 중기, 장기로 완벽하게 세분화하여, 투자 성향별 맞춤 매매 가이드라인 표를 실시간 렌더링합니다."""
+    whale = scanner.calculate_whale_analysis(symbol, market_code)
+    if not whale:
+        return ""
+        
+    curr = whale['current_price']
+    price_suffix = "원" if market_code != 'US' else "달러"
+    
+    # [1] 단기 시나리오 계산 (단타/스윙 - 현재가 및 돌파점 기준)
+    bp = whale['breakout_point']
+    s_b_lower = curr * 0.98
+    s_b_upper = max(curr * 1.01, bp)
+    s_t1 = curr * 1.05
+    s_t2 = curr * 1.10
+    s_sl = curr * 0.95
+    
+    s_ref = s_b_upper
+    s_p_t1 = ((s_t1 - s_ref) / s_ref) * 100 if s_ref > 0 else 0
+    s_p_t2 = ((s_t2 - s_ref) / s_ref) * 100 if s_ref > 0 else 0
+    s_p_sl = ((s_sl - s_ref) / s_ref) * 100 if s_ref > 0 else 0
+    
+    # [2] 중기 시나리오 계산 (추세/눌림목 - 중기 세력평단 mid_term_basis 기준)
+    mid = whale['mid_term_basis']
+    m_b_lower = mid * 0.97
+    m_b_upper = mid * 1.03
+    m_t1 = whale['target_price_1']
+    m_t2 = whale['target_price_2']
+    m_sl = mid * 0.92
+    
+    m_ref = m_b_upper
+    m_p_t1 = ((m_t1 - m_ref) / m_ref) * 100 if m_ref > 0 else 0
+    m_p_t2 = ((m_t2 - m_ref) / m_ref) * 100 if m_ref > 0 else 0
+    m_p_sl = ((m_sl - m_ref) / m_ref) * 100 if m_ref > 0 else 0
+    
+    # [3] 장기 시나리오 계산 (가치/매집 - 장기 세력평단 long_term_basis 기준)
+    long_b = whale['long_term_basis']
+    l_b_lower = long_b * 0.95
+    l_b_upper = long_b * 1.02
+    l_t1 = long_b * 1.25
+    l_t2 = long_b * 1.50
+    l_sl = whale['stop_loss']
+    
+    l_ref = l_b_upper
+    l_p_t1 = ((l_t1 - l_ref) / l_ref) * 100 if l_ref > 0 else 0
+    l_p_t2 = ((l_t2 - l_ref) / l_ref) * 100 if l_ref > 0 else 0
+    l_p_sl = ((l_sl - l_ref) / l_ref) * 100 if l_ref > 0 else 0
+
+    # 손익비 뱃지 (중기 손익비 기준 매력도 표시)
+    rr = whale['rr_ratio']
+    if rr >= 2.0:
+        rr_badge = '<span style="background-color:#2ecc71; color:white; padding:3px 7px; border-radius:4px; font-weight:bold; font-size:0.78em; display:inline-block; border:1px solid rgba(255,255,255,0.15);">중기 손익비 최상</span>'
+    elif rr >= 1.2:
+        rr_badge = '<span style="background-color:#3498db; color:white; padding:3px 7px; border-radius:4px; font-weight:bold; font-size:0.78em; display:inline-block; border:1px solid rgba(255,255,255,0.15);">중기 손익비 보통</span>'
+    else:
+        rr_badge = '<span style="background-color:#e74c3c; color:white; padding:3px 7px; border-radius:4px; font-weight:bold; font-size:0.78em; display:inline-block; border:1px solid rgba(255,255,255,0.15);">중기 진입 주의</span>'
+
+    html = f"""
+    <div style="
+        background: linear-gradient(135deg, rgba(30, 34, 42, 0.95) 0%, rgba(20, 24, 30, 0.98) 100%) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 12px !important;
+        padding: 20px !important;
+        margin-top: 15px !important;
+        margin-bottom: 15px !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
+    ">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
+            <span style="font-size: 1.05em; font-weight: bold; color: #58a6ff;">🎯 실시간 기간별(단기/중기/장기) 매매 시나리오 타점</span>
+            <div>
+                {rr_badge}
+            </div>
+        </div>
+        
+        <div style="overflow-x: auto;">
+            <table style="width:100%; border-collapse: collapse; font-size: 0.85em; color: #adbac7; min-width: 600px;">
+                <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left;">
+                        <th style="padding: 8px 5px; color: #8b949e; font-weight: 500; width: 22%;">구분</th>
+                        <th style="padding: 8px 5px; color: #f1c40f; font-weight: bold; text-align: right; width: 26%;">⚡ 단기 (단타/스윙)</th>
+                        <th style="padding: 8px 5px; color: #3498db; font-weight: bold; text-align: right; width: 26%;">📅 중기 (눌림목/추세)</th>
+                        <th style="padding: 8px 5px; color: #2ecc71; font-weight: bold; text-align: right; width: 26%;">🚀 장기 (가치/매집)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                        <td style="padding: 10px 5px; font-weight: bold; color: #ffffff;">🟢 매수 범위<br><span style="font-size:0.85em; font-weight:normal; color:#8b949e;">(Buy Zone)</span></td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #f1c40f; vertical-align: middle;">
+                            {s_b_lower:,.0f} ~ {s_b_upper:,.0f} {price_suffix}<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">돌파/단기눌림</span>
+                        </td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #3498db; vertical-align: middle;">
+                            {m_b_lower:,.0f} ~ {m_b_upper:,.0f} {price_suffix}<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">20일선/중기지지</span>
+                        </td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #2ecc71; vertical-align: middle;">
+                            {l_b_lower:,.0f} ~ {l_b_upper:,.0f} {price_suffix}<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">장기세력선/바닥</span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                        <td style="padding: 10px 5px; font-weight: bold; color: #ffffff;">🎯 1차 목표가<br><span style="font-size:0.85em; font-weight:normal; color:#8b949e;">(대비 기대치)</span></td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
+                            {s_t1:,.0f} {price_suffix}<br><span style="color:#f1c40f; font-size:0.9em;">{s_p_t1:+.1f}%</span>
+                        </td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
+                            {m_t1:,.0f} {price_suffix}<br><span style="color:#3498db; font-size:0.9em;">{m_p_t1:+.1f}%</span>
+                        </td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
+                            {l_t1:,.0f} {price_suffix}<br><span style="color:#2ecc71; font-size:0.9em;">{l_p_t1:+.1f}%</span>
+                        </td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
+                        <td style="padding: 10px 5px; font-weight: bold; color: #ffffff;">🔥 2차 목표가<br><span style="font-size:0.85em; font-weight:normal; color:#8b949e;">(대비 기대치)</span></td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
+                            {s_t2:,.0f} {price_suffix}<br><span style="color:#f1c40f; font-size:0.9em;">{s_p_t2:+.1f}%</span>
+                        </td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
+                            {m_t2:,.0f} {price_suffix}<br><span style="color:#3498db; font-size:0.9em;">{m_p_t2:+.1f}%</span>
+                        </td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
+                            {l_t2:,.0f} {price_suffix}<br><span style="color:#2ecc71; font-size:0.9em;">{l_p_t2:+.1f}%</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px 5px; font-weight: bold; color: #ffffff;">🚨 최종 손절가<br><span style="font-size:0.85em; font-weight:normal; color:#8b949e;">(Risk Cut)</span></td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #e74c3c; vertical-align: middle;">
+                            {s_sl:,.0f} {price_suffix}<br><span style="font-size:0.9em;">{s_p_sl:+.1f}%</span>
+                        </td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #e74c3c; vertical-align: middle;">
+                            {m_sl:,.0f} {price_suffix}<br><span style="font-size:0.9em;">{m_p_sl:+.1f}%</span>
+                        </td>
+                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #e74c3c; vertical-align: middle;">
+                            {l_sl:,.0f} {price_suffix}<br><span style="font-size:0.9em;">{l_p_sl:+.1f}%</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div style="margin-top: 15px; background: rgba(255,255,255,0.02); border-radius: 6px; padding: 12px; border: 1px dashed rgba(255,255,255,0.05);">
+            <p style="margin: 0; font-size: 0.78em; color: #8b949e; line-height: 1.5;">
+                💡 <b>투자 성향별 매매법:</b><br>
+                1. <b>단기(⚡)</b>: 현재 강력한 수급에 바로 탑승하되, <b>손절선(-4~-5%)을 칼같이 지켜야</b> 고점에 물리지 않는 빠른 단타 매매 영역입니다.<br>
+                2. <b>중기(📅)</b>: 20일선 및 골드라인 부근까지 주가가 <b>차분히 조정을 줄 때 눌림목 진입</b>하여 전고점 1차/2차 목표가를 스윙으로 노리는 안정적인 영역입니다.<br>
+                3. <b>장기(🚀)</b>: 세력의 장기 바닥 매집선 부근에서 분할 매수하여 <b>장기적 대세 상승 랠리(목표가 +25~+50% 이상)를 모아가는</b> 가치/매집 투자 영역입니다.
+            </p>
+        </div>
+    </div>
+    """
+    # 마크다운 파서가 줄바꿈/들여쓰기를 코드 블록으로 잘못 오해하여 텍스트로 노출하는 문제를 100% 원천 해결하기 위해,
+    # 공백과 줄바꿈을 완벽히 압축한 단 한 줄의 단일 HTML 문자열로 변환하여 리턴합니다.
+    minified_html = " ".join([line.strip() for line in html.splitlines() if line.strip()])
+    return minified_html
 
 def load_portfolio():
     if os.path.exists(PORTFOLIO_FILE):
@@ -1055,256 +768,8 @@ def save_portfolio(portfolio):
     with open(PORTFOLIO_FILE, "w") as f:
         json.dump(portfolio, f)
 
-@st.cache_data(ttl=300)
-def get_macro_indicators():
-    """글로벌 거시경제 지표 데이터를 수집하고 당일 등락 정보를 계산합니다."""
-    tickers = {
-        "KOSPI": "^KS11",
-        "S&P 500": "^GSPC",
-        "NASDAQ": "^IXIC",
-        "환율 (USD/KRW)": "KRW=X",
-        "미 국채 10년": "^TNX",
-        "달러 인덱스": "DX-Y.NYB"
-    }
-    
-    data = {}
-    for name, ticker in tickers.items():
-        try:
-            # 5일치 일봉 데이터를 조회하여 최근 2영업일 가격 비교
-            tk = yf.Ticker(ticker)
-            df = tk.history(period="5d")
-            if df is not None and len(df) >= 2:
-                prev_close = df['Close'].iloc[-2]
-                curr_price = df['Close'].iloc[-1]
-                delta = curr_price - prev_close
-                delta_pct = (delta / prev_close) * 100
-                
-                # 데이터 정제 (Nan 방지)
-                if pd.isna(curr_price) or pd.isna(prev_close):
-                    df_clean = df.dropna(subset=['Close'])
-                    if len(df_clean) >= 2:
-                        prev_close = df_clean['Close'].iloc[-2]
-                        curr_price = df_clean['Close'].iloc[-1]
-                        delta = curr_price - prev_close
-                        delta_pct = (delta / prev_close) * 100
-                    else:
-                        raise ValueError("Cleaned data insufficient")
-                
-                data[name] = {
-                    "price": float(curr_price),
-                    "delta": float(delta),
-                    "delta_pct": float(delta_pct),
-                    "success": True
-                }
-            elif df is not None and len(df) == 1:
-                curr_price = df['Close'].iloc[-1]
-                data[name] = {
-                    "price": float(curr_price),
-                    "delta": 0.0,
-                    "delta_pct": 0.0,
-                    "success": True
-                }
-            else:
-                data[name] = {"success": False, "reason": "No data returned"}
-        except Exception as e:
-            data[name] = {"success": False, "reason": str(e)}
-            
-    return data
-
-def render_macro_dashboard():
-    """거시경제 지표를 전광판 형태로 대시보드 상단에 렌더링합니다."""
-    macro_data = get_macro_indicators()
-    
-    cols = st.columns(6)
-    
-    for i, (name, info) in enumerate(macro_data.items()):
-        with cols[i]:
-            if info.get("success", False):
-                price = info["price"]
-                delta = info["delta"]
-                delta_pct = info["delta_pct"]
-                
-                # 포맷 설정
-                if "KOSPI" in name or "S&P" in name or "NASDAQ" in name:
-                    price_str = f"{price:,.2f}"
-                    delta_str = f"{delta:+,.2f}"
-                elif "환율" in name:
-                    price_str = f"{price:,.2f}원"
-                    delta_str = f"{delta:+,.2f}원"
-                elif "국채" in name:
-                    price_str = f"{price:.3f}%"
-                    delta_str = f"{delta:+.3f}%"
-                else: # 달러 인덱스 등
-                    price_str = f"{price:,.2f}"
-                    delta_str = f"{delta:+,.2f}"
-                
-                # 등락에 따른 색상 및 기호 결정 (상승: 녹색, 하락: 적색, 보합: 회색)
-                if delta > 0:
-                    color = "#00e676"  # Premium Emerald Green
-                    bg_effect = "rgba(0, 230, 118, 0.03)"
-                    border_color = "rgba(0, 230, 118, 0.2)"
-                    shadow_color = "rgba(0, 230, 118, 0.1)"
-                    icon = "▲"
-                elif delta < 0:
-                    color = "#ff1744"  # Premium Neon Rose Red
-                    bg_effect = "rgba(255, 23, 68, 0.03)"
-                    border_color = "rgba(255, 23, 68, 0.2)"
-                    shadow_color = "rgba(255, 23, 68, 0.1)"
-                    icon = "▼"
-                else:
-                    color = "#8b949e"  # Soft Gray
-                    bg_effect = "rgba(139, 148, 158, 0.03)"
-                    border_color = "rgba(139, 148, 158, 0.15)"
-                    shadow_color = "transparent"
-                    icon = "■"
-                
-                st.markdown(f"""
-                <div style="
-                    background: {bg_effect};
-                    backdrop-filter: blur(10px);
-                    -webkit-backdrop-filter: blur(10px);
-                    border: 1px solid {border_color};
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    text-align: center;
-                    box-shadow: 0 4px 12px {shadow_color};
-                    transition: all 0.3s ease;
-                    margin-bottom: 15px;
-                ">
-                    <div style="font-size: 0.78em; color: inherit; opacity: 0.65; font-weight: 500; letter-spacing: 0.5px; margin-bottom: 2px;">{name}</div>
-                    <div style="font-size: 1.15em; font-weight: 700; color: inherit; margin: 2px 0;">{price_str}</div>
-                    <div style="font-size: 0.75em; font-weight: 600; color: {color}; display: flex; align-items: center; justify-content: center; gap: 2px;">
-                        <span>{icon}</span> {delta_str} ({delta_pct:+.2f}%)
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                reason = info.get("reason", "데이터 부재")
-                st.markdown(f"""
-                <div style="
-                    background: rgba(255, 255, 255, 0.02);
-                    border: 1px dashed rgba(241, 196, 15, 0.3);
-                    border-radius: 8px;
-                    padding: 8px 12px;
-                    text-align: center;
-                    margin-bottom: 15px;
-                ">
-                    <div style="font-size: 0.75em; color: inherit; opacity: 0.65; margin-bottom: 2px;">{name}</div>
-                    <div style="font-size: 0.9em; font-weight: 600; color: #f1c40f; margin: 4px 0;">조회 대기</div>
-                    <div style="font-size: 0.65em; color: inherit; opacity: 0.5;">{reason[:20]}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-# --- Shadowing & Theme Encyclopedia Management ---
-SHADOWING_FILE = os.path.join(BASE_DIR, "shadowing_dictionary.json")
-
-def initialize_default_shadowing_data():
-    """기본 주도 테마 백과사전 및 쉐도잉 일지 예시 데이터를 반환합니다."""
-    return {
-        "dictionary": [
-            {
-                "id": "theme_001",
-                "theme": "반도체 HBM / CXL",
-                "stocks": "한미반도체, 네오셈, 삼성전자, SK하이닉스",
-                "reason": "엔비디아향 HBM3E/HBM4 공급 경쟁 본격화 및 AI 고성능 컴퓨팅을 위한 차세대 CXL 2.0 규격 메모리 모듈 부각",
-                "last_updated": "2026-05-23"
-            },
-            {
-                "id": "theme_002",
-                "theme": "인공지능 (AI) 온디바이스",
-                "stocks": "제주반도체, 오픈엣지테크놀로지, 리노공업, 칩스앤미디어",
-                "reason": "클라우드를 거치지 않고 단말기 자체에서 AI를 수행하는 온디바이스 기기(스마트폰, PC 등) 개화로 저전력 메모리 반도체 및 NPU IP 설계 가치 폭등",
-                "last_updated": "2026-05-23"
-            },
-            {
-                "id": "theme_003",
-                "theme": "초전도체 (LK-99 / PCPOSOS)",
-                "stocks": "신성델타테크, 파워로직스, 서남, 덕성",
-                "reason": "상온 초전도체 개발 주장 및 국내외 연구진의 학회 발표, 교차 검증 소식이 전해질 때마다 테마 전체가 극도의 변동성을 보이며 급등락",
-                "last_updated": "2026-05-23"
-            },
-            {
-                "id": "theme_004",
-                "theme": "2차전지 (양극재 / 리튬)",
-                "stocks": "에코프로, 에코프로비엠, 포스코퓨처엠, 금양, 엘앤에프",
-                "reason": "글로벌 친환경 탄소 제로 정책 수혜 및 북미 시장 중심의 대규모 배터리 핵심 양극소재 장기 공급 계약 수주에 따른 외형 성장",
-                "last_updated": "2026-05-23"
-            },
-            {
-                "id": "theme_005",
-                "theme": "원자력 발전 (원전 / SMR)",
-                "stocks": "두산에너빌리티, 우리기술, 서전기전, 보성파워텍, 에너토크",
-                "reason": "동유럽(체코, 폴란드 등) 대규모 원전 건설 프로젝트 수주 기대감 및 미래 AI 데이터센터 전력 공급을 위한 소형 모듈 원자로(SMR) 필요성 부각",
-                "last_updated": "2026-05-23"
-            },
-            {
-                "id": "theme_006",
-                "theme": "바이오 (ADC / 비만치료제)",
-                "stocks": "알테오젠, 유한양행, 리가켐바이오, HLB, 에이비엘바이오",
-                "reason": "글로벌 빅파마로의 차세대 ADC(항암 항체-약물 접합체) 기술 이전 및 기적의 비만치료제(GLP-1 계열) 시장 성장에 따른 신약 파이프라인 가치 재평가",
-                "last_updated": "2026-05-23"
-            }
-        ],
-        "records": [
-            {
-                "date": "2026-05-20",
-                "keyword": "초전도체",
-                "stocks": "신성델타테크, 파워로직스",
-                "reason": "미국 물리학회 발표를 앞두고 새로운 상온 초전도 합성 성공 소식에 장중 거래대금이 쏠리며 급등 마감"
-            },
-            {
-                "date": "2026-05-21",
-                "keyword": "반도체",
-                "stocks": "한미반도체, 네오셈",
-                "reason": "엔비디아의 어닝 서프라이즈로 HBM 및 차세대 메모리 소부장 대장주들이 500억 이상의 압도적인 거래대금을 동반해 장대양봉 기록"
-            },
-            {
-                "date": "2026-05-22",
-                "keyword": "바이오",
-                "stocks": "알테오젠, 리가켐바이오",
-                "reason": "글로벌 제약사로부터 조 단위 추가 기술 마일스톤 수취 뉴스가 부각되며 ADC 플랫폼 관련 종목들에 수급 유입"
-            },
-            {
-                "date": "2026-05-23",
-                "keyword": "인공지능",
-                "stocks": "제주반도체, 오픈엣지테크놀로지",
-                "reason": "주요 글로벌 스마트폰 제조사의 AI 탑재 신제품 보급 확대 계획 발표로 온디바이스 AI 관련 저전력 칩 테마 상승세 주도"
-            }
-        ]
-    }
-
-def load_shadowing_data():
-    """로컬 JSON에서 쉐도잉 데이터를 불러옵니다. 파일이 없을 경우 기본값을 생성합니다."""
-    if os.path.exists(SHADOWING_FILE):
-        try:
-            with open(SHADOWING_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                # 데이터 정합성 검증
-                if "dictionary" not in data: data["dictionary"] = []
-                if "records" not in data: data["records"] = []
-                return data
-        except Exception as e:
-            st.error(f"쉐도잉 데이터 로드 에러: {e}. 초기값으로 복구합니다.")
-            return initialize_default_shadowing_data()
-    else:
-        # 파일이 없을 경우 초기 생성 및 저장
-        default_data = initialize_default_shadowing_data()
-        save_shadowing_data(default_data)
-        return default_data
-
-def save_shadowing_data(data):
-    """쉐도잉 데이터를 로컬 JSON에 저장합니다."""
-    try:
-        with open(SHADOWING_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        st.error(f"쉐도잉 데이터 저장 실패: {e}")
-        return False
-
 # --- App Logic ---
 st.title("🚀 Premium Stock Selection & Monitoring")
-render_macro_dashboard()
 
 # @st.cache_resource # 캐싱된 이전 버전의 StockScanner 객체로 인해 find_symbol_by_name 속성 오류가 발생할 수 있습니다.
 def get_scanner():
@@ -1349,23 +814,19 @@ def plot_chart(df, symbol, name):
         high=df['High'],
         low=df['Low'],
         close=df['Close'],
-        name='주가',
-        increasing_line_color='#26a69a',  # 트레이딩뷰 에메랄드 그린
-        decreasing_line_color='#ef5350',  # 트레이딩뷰 네온 로즈 레드
-        increasing_fillcolor='#26a69a',
-        decreasing_fillcolor='#ef5350'
+        name='Candle'
     ))
 
     # 2. 이동평균선
     if 'MA50' in df.columns:
-        fig.add_trace(go.Scatter(x=df.index, y=df['MA50'], line=dict(color='rgba(255,165,0,0.4)', width=1.2), name='MA50'))
+        fig.add_trace(go.Scatter(x=df.index, y=df['MA50'], line=dict(color='orange', width=1.5), name='MA50'))
     if 'MA200' in df.columns:
-        fig.add_trace(go.Scatter(x=df.index, y=df['MA200'], line=dict(color='rgba(255,23,68,0.4)', width=1.2), name='MA200'))
+        fig.add_trace(go.Scatter(x=df.index, y=df['MA200'], line=dict(color='red', width=1.5), name='MA200'))
 
     # 3. 볼린저 밴드 (급등 전조 확인용)
     if 'BB_High' in df.columns and 'BB_Low' in df.columns:
-        fig.add_trace(go.Scatter(x=df.index, y=df['BB_High'], line=dict(color='rgba(173, 216, 230, 0.08)'), showlegend=False, name='BB High'))
-        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Low'], line=dict(color='rgba(173, 216, 230, 0.08)'), fill='tonexty', showlegend=False, name='BB Low'))
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_High'], line=dict(color='rgba(173, 216, 230, 0.2)'), name='BB High'))
+        fig.add_trace(go.Scatter(x=df.index, y=df['BB_Low'], line=dict(color='rgba(173, 216, 230, 0.2)'), fill='tonexty', name='BB Low'))
 
     # 레이아웃 설정
     fig.update_layout(
@@ -1373,42 +834,14 @@ def plot_chart(df, symbol, name):
         yaxis_title="Price",
         xaxis_title="Date",
         template="plotly_dark",
-        plot_bgcolor='#131722',  # 트레이딩뷰 특유의 딥 다크 블루
-        paper_bgcolor='#0e1117',
         height=600,
-        xaxis_rangeslider_visible=False,
-        margin=dict(l=10, r=10, t=50, b=10),
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="right",
-            x=1,
-            font=dict(size=10)
-        )
+        xaxis_rangeslider_visible=False
     )
-
-    # 초정밀 투명 격자선 설정
-    fig.update_xaxes(
-        gridcolor='rgba(255, 255, 255, 0.04)',
-        linecolor='rgba(255, 255, 255, 0.1)',
-        zeroline=False
-    )
-    fig.update_yaxes(
-        gridcolor='rgba(255, 255, 255, 0.04)',
-        linecolor='rgba(255, 255, 255, 0.1)',
-        zeroline=False
-    )
-    
     return fig
 
 # --- 공통 사이드바 설정 ---
 with st.sidebar:
     st.header("⚙️ 설정")
-    
-    # [모바일 최적화] 모바일 간소화 뷰 토글 스위치 (기본값 True)
-    mobile_view = st.toggle("📱 모바일 간소화 모드", value=True, help="활성화하면 모바일 화면에서 스크롤을 길게 만드는 대형 차트와 세부 분석을 자동으로 접어 스크롤 압박을 줄입니다.")
-    
     market_choice = st.radio("분석 시장 선택", ["한국 (KRX)", "미국 (US)", "암호화폐 (Upbit)"])
     
     # 시장 선택 변경 시 이전 결과 초기화
@@ -1425,6 +858,7 @@ with st.sidebar:
     config = load_config()
     tg_token = st.text_input("Telegram Bot Token", value=config.get("telegram_token", ""), type="password")
     tg_chat_id = st.text_input("Telegram Chat ID", value=config.get("telegram_chat_id", ""))
+    auto_send = st.checkbox("🔥 스캔 완료 시 자동 전송", value=config.get("auto_send", False))
     st.markdown("---")
     st.subheader("🌐 외부 접속 환경 설정")
     custom_url_input = st.text_input("커스텀 URL (선택, ngrok 등)", value=config.get("custom_url", ""), help="외부망에서 접속할 때 할당받은 주소(예: https://1234.ngrok.io)를 입력하면 해당 주소로 QR코드가 생성됩니다. 비워두면 현재 PC의 내부망 IP로 자동 생성됩니다.")
@@ -1434,7 +868,7 @@ with st.sidebar:
         if st.button("💾 설정 저장", use_container_width=True):
             config["telegram_token"] = tg_token
             config["telegram_chat_id"] = tg_chat_id
-            config["auto_send"] = False
+            config["auto_send"] = auto_send
             config["custom_url"] = custom_url_input
             save_config(config)
             st.success("설정이 저장되었습니다!")
@@ -1493,105 +927,114 @@ with st.sidebar:
                 st.error(f"오류 발생: {e}")
 
     st.markdown("---")
-    # 클라우드 환경이 아닐 때만 종료 및 모바일 설정 표시
-    is_cloud = "STREAMLIT_RUNTIME" in os.environ or ".streamlit" in BASE_DIR
+    st.subheader("📱 모바일 접속")
     
-    if not is_cloud:
-        st.markdown("---")
-        st.subheader("📱 모바일 접속")
-        
-        # 모바일용 QR 코드 및 링크 제공
-        local_ip = get_local_ip()
-        saved_url = config.get("custom_url", "").strip()
-        if saved_url:
-            mobile_url = saved_url
-            if not mobile_url.startswith("http"): mobile_url = "http://" + mobile_url
-            msg_desc = "입력하신 전용 네트워크 주소(ngrok 등)로 QR이 생성되었습니다."
-        else:
-            mobile_url = f"http://{local_ip}:8501"
-            msg_desc = "PC와 동일한 Wi-Fi에 연결된 폰으로 스캔하세요."
-        
-        st.info(f"💡 **스마트폰 접속:**\n{msg_desc}")
-        col_qr1, col_qr2 = st.columns([1, 1])
-        with col_qr1:
-            st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={mobile_url}", width=120)
-        with col_qr2:
-            st.caption("주소:")
-            st.code(mobile_url, language="text")
-
-        st.markdown("---")
-        st.subheader("🏁 시스템")
-        if st.button("🚀 프로그램 완전히 종료"):
-            shutdown_app()
+    # 모바일용 QR 코드 및 링크 제공
+    def get_local_ip():
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(('10.255.255.255', 1))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except:
+            return '127.0.0.1'
+            
+    local_ip = get_local_ip()
+    
+    # 커스텀 URL이 설정되어 있는지 확인
+    saved_url = config.get("custom_url", "").strip()
+    if saved_url:
+        mobile_url = saved_url
+        # URL 형식 보정 (http/https가 없으면 추가)
+        if not mobile_url.startswith("http"):
+            mobile_url = "http://" + mobile_url
+        msg_desc = "입력하신 전용 네트워크 주소(ngrok 등)로 QR이 생성되었습니다. 외부 어디서든 폰으로 스캔하세요!"
     else:
-        st.markdown("---")
-        st.caption("☁️ 클라우드 배포 모드로 동작 중입니다.")
+        mobile_url = f"http://{local_ip}:8501"
+        msg_desc = "PC와 동일한 Wi-Fi에 연결된 폰으로 아래 QR을 스캔하세요."
+    
+    st.info(f"💡 **스마트폰으로 편하게 보기:**\n{msg_desc}")
+    
+    # 레이아웃을 이쁘게 배치
+    col_qr1, col_qr2 = st.columns([1, 1])
+    with col_qr1:
+        st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={mobile_url}", width=120)
+    with col_qr2:
+        st.write(" ") # 수직 정렬
+        st.write(" ")
+        st.caption("접속 주소:")
+        st.code(mobile_url, language="text")
+
+    st.markdown("---")
+    st.subheader("🏁 시스템")
+    if st.button("🚀 프로그램 완전히 종료", help="웹페이지와 터미널(CMD) 창을 모두 닫습니다."):
+        shutdown_app()
 
 # 메인 탭 구성
-tab_scan, tab_whale, tab_portfolio, tab_dict, tab_guide = st.tabs(["🔍 종목 스캔", "🐳 세력분석 & 매매타점", "💼 나의 포트폴리오", "📚 주도주·테마 백과사전", "💡 사용법 & 알고리즘"])
+tab_scan, tab_portfolio, tab_dict = st.tabs(["🔍 종목 스캔", "⭐ 포트폴리오", "📚 주도테마백과사전"])
 
 with tab_scan:
     st.markdown("### 🔍 시장 종목 스캐너")
     
     # [신규] 개별 종목 직접 검색 섹션
-    st.markdown("#### 🔍 종목 정밀 검색")
-    search_input = st.text_input("🔍 종목명, 코드, 또는 자음 검색 (예: 삼성전자, AAPL, ㅅㅅ, ㅂㅌ)", key="direct_search_input").strip()
-    
-    if search_input:
-        matches = scanner.search_symbols(search_input)
-        if matches:
-            st.write(f"💡 '{search_input}' 검색 결과 ({len(matches)}개):")
-            
-            # 검색 결과 선택
-            cols = st.columns([3, 1])
-            with cols[0]:
-                selected_match = st.selectbox(
-                    "분석할 종목을 선택하세요", 
-                    options=matches, 
-                    format_func=lambda x: x['Display'],
-                    key="selected_search_match"
-                )
-            with cols[1]:
-                st.write(" ") # 수직 정렬
-                if st.button("🚀 즉시 분석", use_container_width=True, key="start_direct_analysis"):
-                    with st.spinner(f"'{selected_match['Name']}' 정밀 분석 중..."):
-                        target_symbol = selected_match['Symbol']
-                        m_code = selected_match['Market']
-                        analysis = scanner.analyze_stock(target_symbol, m_code)
-                        
-                        if analysis:
-                            analysis['Name'] = selected_match['Name']
-                            analysis['market_type'] = m_code
-                            st.session_state['direct_search_result'] = analysis
-                            st.success(f"{analysis['Name']} ({target_symbol}) 분석 완료!")
-                        else:
-                            st.error("데이터를 가져오는 중 오류가 발생했습니다.")
-        else:
-            st.error("일치하는 종목이 없습니다. 검색어를 확인해 주세요.")
+    search_col1, search_col2 = st.columns([3, 1])
+    with search_col1:
+        search_input = st.text_input("🔍 종목명 또는 코드 검색 (예: 삼성전자, AAPL, 비트코인)", key="direct_search_input").strip()
+    with search_col2:
+        st.write(" ") # 수직 정렬용
+        if st.button("🚀 즉시 분석", use_container_width=True):
+            if search_input:
+                with st.spinner(f"'{search_input}' 정밀 분석 중..."):
+                    # 1. 시장 코드 자동 판별 (코드 직접 입력 대응)
+                    m_code = 'KR'
+                    input_upper = search_input.upper()
+                    if '-' in input_upper: m_code = 'COIN'
+                    elif any(c.isalpha() for c in input_upper): m_code = 'US'
+                    
+                    # 먼저 코드로 분석 시도
+                    analysis = scanner.analyze_stock(input_upper, m_code)
+                    target_symbol = input_upper
+                    
+                    # 2. 코드로 분석 실패 시 이름으로 검색 시도
+                    if not analysis:
+                        found_code, found_market = scanner.find_symbol_by_name(search_input)
+                        if found_code:
+                            target_symbol = found_code
+                            m_code = found_market
+                            analysis = scanner.analyze_stock(target_symbol, m_code)
+                    
+                    if analysis:
+                        analysis['Name'] = scanner.get_symbol_name(target_symbol, m_code)
+                        analysis['market_type'] = m_code
+                        st.session_state['direct_search_result'] = analysis
+                        st.success(f"{analysis['Name']} ({target_symbol}) 분석 완료!")
+                    else:
+                        st.error("종목을 찾을 수 없거나 데이터를 가져오지 못했습니다. 이름이나 코드를 확인해 주세요.")
+            else:
+                st.warning("분석할 종목명 또는 코드를 입력하세요.")
 
     if 'direct_search_result' in st.session_state and st.session_state['direct_search_result']:
         s_data = st.session_state['direct_search_result']
         with st.expander(f"📌 {s_data['Name']} ({s_data['symbol']}) 검색 결과 (클릭하여 닫기)", expanded=True):
             st.markdown(f"#### 🛰️ {s_data['Name']} 실시간 기술적 상태")
             
-            # 모바일 뷰 분기
-            if mobile_view:
-                # 차트를 expander로 감싸서 숨겨둠으로써 스크롤 감소
-                with st.expander("📈 실시간 정밀 차트 보기", expanded=False):
-                    display_detailed_chart(s_data['symbol'], s_data['market_type'])
+            s_col1, s_col2 = st.columns([2, 1])
+            with s_col1:
+                display_detailed_chart(s_data['symbol'], s_data['market_type'])
+            with s_col2:
+                st.metric("현재가", f"{s_data['current_price']:,.0f}")
+                st.metric("종합 점수", f"{s_data['score']}점")
+                st.markdown("##### 📡 분석 신호")
+                for sig in s_data['signals'].split(','):
+                    if sig.strip(): st.caption(f"• {sig.strip()}")
                 
-                score_val = s_data['score']
-                score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
-                price_suffix = "원" if s_data['market_type'] != 'US' else "달러"
+                if s_data['action'] == 'BUY': st.success(f"**{s_data['action_desc']}**")
+                else: st.info(f"**{s_data['action_desc']}**")
                 
-                st.markdown(render_premium_metric("현재가", f"{s_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
-                st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
-                
-                st.markdown("##### 📡 실시간 감지 신호")
-                st.markdown(render_premium_signals(s_data['signals']), unsafe_allow_html=True)
-                
-                st.markdown("##### 💡 전문가 의견")
-                st.markdown(render_premium_expert_opinion(s_data['action'], s_data['action_desc']), unsafe_allow_html=True)
+                # [신규] 실시간 추천 거래 가이드라인 카드 연동
+                st.markdown(render_trading_price_guide(s_data['symbol'], s_data['market_type']), unsafe_allow_html=True)
                 
                 if st.button("⭐ 검색 종목 포트폴리오 추가", key="add_search_portfolio", use_container_width=True):
                     p_data = load_portfolio()
@@ -1601,31 +1044,6 @@ with tab_scan:
                         save_portfolio(p_data)
                         st.success("포트폴리오에 등록되었습니다!")
                     else: st.warning("이미 등록된 종목입니다.")
-            else:
-                s_col1, s_col2 = st.columns([2, 1])
-                with s_col1:
-                    display_detailed_chart(s_data['symbol'], s_data['market_type'])
-                with s_col2:
-                    score_val = s_data['score']
-                    score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
-                    price_suffix = "원" if s_data['market_type'] != 'US' else "달러"
-                    
-                    st.markdown(render_premium_metric("현재가", f"{s_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
-                    st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
-                    st.markdown("##### 📡 실시간 감지 신호")
-                    st.markdown(render_premium_signals(s_data['signals']), unsafe_allow_html=True)
-                    
-                    st.markdown("##### 💡 전문가 의견")
-                    st.markdown(render_premium_expert_opinion(s_data['action'], s_data['action_desc']), unsafe_allow_html=True)
-                    
-                    if st.button("⭐ 검색 종목 포트폴리오 추가", key="add_search_portfolio", use_container_width=True):
-                        p_data = load_portfolio()
-                        m_key = s_data['market_type']
-                        if s_data['symbol'] not in p_data[m_key]:
-                            p_data[m_key].append(s_data['symbol'])
-                            save_portfolio(p_data)
-                            st.success("포트폴리오에 등록되었습니다!")
-                        else: st.warning("이미 등록된 종목입니다.")
             
             if st.button("❌ 검색 결과 지우기", use_container_width=True):
                 del st.session_state['direct_search_result']
@@ -1639,14 +1057,19 @@ with tab_scan:
         st.subheader(f"🔍 {market_choice} 상위 종목 분석 중...")
         
         with st.spinner("데이터를 분석하고 리스트를 생성하고 있습니다. 잠시만 기다려 주세요..."):
-            # 이전 검색 내역 및 상세 테이블 잔재 클리어
-            if 'direct_search_result' in st.session_state:
-                del st.session_state['direct_search_result']
-            st.session_state['scan_count'] = st.session_state.get('scan_count', 0) + 1
-            
             results = run_scan(market_choice, scan_limit)
             st.session_state['scan_results'] = results
             st.session_state['current_market'] = market_choice
+            
+            # 자동 전송 로직
+            config = load_config()
+            if config.get("auto_send") and results:
+                report_msg = format_stock_message(results, market_choice)
+                success, msg = send_telegram_message(report_msg)
+                if success:
+                    st.info("📢 분석 결과가 텔레그램으로 자동 전송되었습니다.")
+                else:
+                    st.warning(f"⚠️ 자동 전송 실패: {msg}")
 
     if 'scan_results' in st.session_state and st.session_state['scan_results']:
         results = st.session_state['scan_results']
@@ -1654,20 +1077,6 @@ with tab_scan:
         df_res = pd.DataFrame(results).sort_values(by='score', ascending=False).reset_index(drop=True)
         
         st.markdown("---")
-        
-        # 수동 텔레그램 전송 연동
-        col_send_all_1, col_send_all_2 = st.columns([3, 1])
-        with col_send_all_1:
-            st.success(f"✅ {current_market} 스캔 완료! 총 {len(results)}개 우수 종목 분석 완료 (종합 점수 50점 이상)")
-        with col_send_all_2:
-            if st.button("📱 전체 스캔결과 Telegram 전송", use_container_width=True, key="btn_send_all_tg"):
-                with st.spinner("텔레그램 전송 중..."):
-                    report_msg = format_stock_message(results, current_market)
-                    success, msg = send_telegram_message(report_msg)
-                    if success:
-                        st.success("전송 완료! 🚀")
-                    else:
-                        st.error(f"전송 실패: {msg}")
         
         # --- [NEW] 매매법 필터링 섹션 ---
         st.subheader("🎯 매매법별 필터링")
@@ -1683,12 +1092,10 @@ with tab_scan:
         strategies = {
             "전체": df_res,
             "🚀 급등 임박": df_res[df_res['signals'].str.contains("🚀 급등 전조")] if not df_res.empty else df_res,
-            "🏆 캐치(KATCH)": df_res[df_res['signals'].str.contains("캐치")] if not df_res.empty else df_res,
             "🥣 주식단테": df_res[df_res['signals'].str.contains("밥그릇|256")] if not df_res.empty else df_res,
             "📦 고쨱짹": df_res[df_res['signals'].str.contains("고쨱짹")] if not df_res.empty else df_res,
             "🐜 홍인기": df_res[df_res['signals'].str.contains("홍인기|끼")] if not df_res.empty else df_res,
             "🚀 AP-김용재": df_res[df_res['signals'].str.contains("AP-김용재")] if not df_res.empty else df_res,
-            "🌞 데이매매": df_res[df_res['signals'].str.contains("🌞 데이매매")] if not df_res.empty else df_res,
             "✨ 오로라": df_res[df_res.apply(check_aurora, axis=1)] if not df_res.empty else df_res,
             "🏆 퓨처온": df_res[df_res.apply(check_futureon, axis=1)] if not df_res.empty else df_res
         }
@@ -1755,9 +1162,9 @@ with tab_scan:
             ].reset_index(drop=True)
 
         # --- [1] 급등 임박 (Surge Alarm) 카드 섹션 ---
-        # 팁: 급등 임박 종목은 항상 보여주어 사용자가 필터를 바꾸더라도 언제든지 눈에 띄게 확인 가능하도록 고도화
+        # 팁: 급등 임박 종목은 항상 보여주거나, 특정 필터에서만 보여줄 수 있음. 여기서는 '전체' 또는 '급등 임박' 선택 시 표시
         surge_stocks = [r for r in results if "🚀 급등 전조" in r['signals']]
-        if surge_stocks:
+        if surge_stocks and selected_strategy_name in ["전체", "🚀 급등 임박"]:
             st.subheader("🚀 급등 임박 (Surge Alarm)")
             st.info("거래량 폭증 및 변동성 수축으로 에너지 분출이 임박한 종목들입니다.")
             surge_cols = st.columns(min(len(surge_stocks), 4))
@@ -1766,36 +1173,30 @@ with tab_scan:
                     # 전문가 뱃지 HTML 생성
                     expert_badges = ""
                     if row.get("experts", {}).get("dante"):
-                        if "밥그릇" in row['signals']: expert_badges += '<span style="background-color: #9b59b6 !important; color: white !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(255,255,255,0.15) !important;">🥣 단테-밥그릇</span>'
-                        if "256" in row['signals']: expert_badges += '<span style="background-color: #34495e !important; color: white !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(255,255,255,0.15) !important;">🎯 단테-256</span>'
-                    if row.get("experts", {}).get("gozack"): expert_badges += '<span style="background-color: #e67e22 !important; color: white !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(255,255,255,0.15) !important;">📦 쨱짹-박스권</span>'
-                    if row.get("experts", {}).get("hongingi"): expert_badges += '<span style="background-color: #c0392b !important; color: white !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(255,255,255,0.15) !important;">🐜 홍인기-대장</span>'
-                    if row.get("experts", {}).get("ap_inv"): expert_badges += '<span style="background-color: #2980b9 !important; color: white !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(255,255,255,0.15) !important;">🚀 AP-김용재</span>'
-                    if row.get("aurora", {}).get("signal"): expert_badges += '<span style="background-color: #f1c40f !important; color: black !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(0,0,0,0.15) !important;">✨ 오로라</span>'
-                    if row.get("futureon", {}).get("isle"): expert_badges += '<span style="background-color: #27ae60 !important; color: white !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(255,255,255,0.15) !important;">🏆 이슬-골드</span>'
-                    if row.get("futureon", {}).get("shintae"): expert_badges += '<span style="background-color: #8e44ad !important; color: white !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(255,255,255,0.15) !important;">🏆 신태-수급</span>'
-                    if row.get("futureon", {}).get("juns"): expert_badges += '<span style="background-color: #d35400 !important; color: white !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(255,255,255,0.15) !important;">🏆 준S-3파동</span>'
-                    if "🌞 데이매매" in row['signals']: expert_badges += '<span style="background-color: #f39c12 !important; color: white !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(255,255,255,0.15) !important;">🌞 데이매매</span>'
-                    if "🏆 캐치" in row['signals']: expert_badges += '<span style="background-color: #16a085 !important; color: white !important; padding: 3px 7px !important; border-radius: 4px !important; font-size: 0.7em !important; font-weight: 800 !important; margin-right: 5px !important; display: inline-block !important; border: 1px solid rgba(255,255,255,0.15) !important;">🏆 캐치</span>'
+                        if "밥그릇" in row['signals']: expert_badges += '<span style="background-color: #9b59b6; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🥣 단테-밥그릇</span>'
+                        if "256" in row['signals']: expert_badges += '<span style="background-color: #34495e; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🎯 단테-256</span>'
+                    if row.get("experts", {}).get("gozack"): expert_badges += '<span style="background-color: #e67e22; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">📦 쨱짹-박스권</span>'
+                    if row.get("experts", {}).get("hongingi"): expert_badges += '<span style="background-color: #c0392b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">|🐜 홍인기-대장주</span>'
+                    if row.get("experts", {}).get("ap_inv"): expert_badges += '<span style="background-color: #2980b9; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🚀 AP-김용재</span>'
+                    if row.get("aurora", {}).get("signal"): expert_badges += '<span style="background-color: #f1c40f; color: black; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">✨ 오로라</span>'
+                    if row.get("futureon", {}).get("isle"): expert_badges += '<span style="background-color: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🏆 이슬-골드라인</span>'
+                    if row.get("futureon", {}).get("shintae"): expert_badges += '<span style="background-color: #8e44ad; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🏆 신태-수급밴드</span>'
+                    if row.get("futureon", {}).get("juns"): expert_badges += '<span style="background-color: #e67e22; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7em; font-weight: bold; margin-right: 5px;">🏆 준S-3파동</span>'
                     
-                    price_suffix = "원" if current_market != '미국 (US)' else "달러"
-                    
-                    card_html = (
-                        f'<div class="surge-card">'
-                        f'<div class="surge-card-glow"></div>'
-                        f'<div class="surge-card-header">'
-                        f'<div>'
-                        f'<h3 class="surge-card-title">🚀 {row["Name"]}</h3>'
-                        f'<span class="surge-card-symbol">{row["symbol"]}</span>'
-                        f'</div>'
-                        f'<div class="surge-card-score">SCORE {row["score"]}</div>'
-                        f'</div>'
-                        f'<div class="surge-card-price">{row["current_price"]:,.0f}<span class="surge-card-price-suffix">{price_suffix}</span></div>'
-                        f'<div class="surge-card-badges">{expert_badges}</div>'
-                        f'<p class="surge-card-signals">📢 {row["signals"].split("🚀")[1] if "🚀" in row["signals"] else row["signals"]}</p>'
-                        f'</div>'
-                    )
-                    st.markdown(card_html, unsafe_allow_html=True)
+                    st.markdown(f"""
+<div style="background-color: #1a1c24; padding: 15px; border-radius: 10px; border: 2px solid #ff4b4b; box-shadow: 0 0 10px rgba(255, 75, 75, 0.3);">
+<h3 style="margin:0; color: #ff4b4b;">🚀 {row['Name']}</h3>
+<p style="margin:0; font-size: 0.85em; color: #8b949e;">{row['symbol']}</p>
+<h2 style="margin:10px 0; color: white;">{row['current_price']:,.0f}</h2>
+<div style="background-color: #ff4b4b; color: white; padding: 2px 8px; border-radius: 5px; font-weight: bold; font-size: 0.8em; margin-bottom: 5px; display: inline-block;">
+SCORE: {row['score']}
+</div>
+<div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px;">
+{expert_badges}
+</div>
+<p style="margin:5px 0; font-size: 0.8em; color: #d1d5da; line-height: 1.2;">📢 {row['signals'].split('🚀')[1] if '🚀' in row['signals'] else row['signals']}</p>
+</div>
+""", unsafe_allow_html=True)
             st.write("")
 
         # --- [2] 실시간 분석 결과 리스트 (Table) ---
@@ -1811,16 +1212,9 @@ with tab_scan:
             else:
                 st.info(f"💡 **팁**: 아래 테이블에서 종목을 클릭하면 하단에 상세 차트와 전문가 매매법 분석 결과가 나타납니다. (총 {len(df_filtered)}개)")
                 
-                if mobile_view:
-                    # 모바일 최적화: 가로 폭이 좁은 모바일을 위해 핵심 4개 컬럼만 제공
-                    df_display = df_filtered[['action', 'Name', 'score', 'change_rate']].copy()
-                    df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
-                    df_display.columns = ['액션', '종목명', '점수', '등락률']
-                else:
-                    # PC 환경: 전체 9개 컬럼 상세 정보 제공
-                    df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']].copy()
-                    df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
-                    df_display.columns = ['액션', '상태', '코드', '종목명', '점수', '현재가', '등락률', 'RSI', '상세신호']
+                df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']].copy()
+                df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
+                df_display.columns = ['액션', '상태', '코드', '종목명', '점수', '현재가', '등락률', 'RSI', '상세신호']
                 
                 # 스타일링이 on_select와 충돌하여 React DOM 에러(removeChild)를 유발할 수 있으므로, 스타일 대신 순수 df를 넘기고 고유 키를 할당합니다.
                 selection_event = st.dataframe(
@@ -1829,7 +1223,7 @@ with tab_scan:
                     on_select="rerun",
                     selection_mode="multi-row",
                     hide_index=True,
-                    key=f"table_{current_market}_{selected_strategy_name}_{st.session_state.get('scan_count', 0)}_{len(df_display)}"
+                    key=f"table_{current_market}_{selected_strategy_name}_{len(df_display)}"
                 )
 
                 # 일괄 추가 버튼
@@ -1864,38 +1258,68 @@ with tab_scan:
                 
                 st.markdown(f"### 📈 {selected_data['Name']} ({selected_symbol}) 정밀 분석")
                 
-                if mobile_view:
-                    # 모바일 최적화: 스크롤 단축을 위해 전문가 기법과 차트를 접은 상태로 제공
-                    with st.expander("🧐 전문가 기법 및 수급 확인 (클릭하여 펼치기)", expanded=False):
-                        st.markdown(render_premium_strategy_grid(selected_data), unsafe_allow_html=True)
-                        expert_reasons = []
-                        if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'):
-                            for r in selected_data['aurora']['reasons']:
-                                expert_reasons.append(f"✨ **오로라**: {r}")
-                        if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
-                            for r in selected_data['futureon']['reasons']:
-                                expert_reasons.append(f"🏆 **퓨처온**: {r}")
-                        if expert_reasons:
-                            for reason in expert_reasons:
-                                st.caption(reason)
-                    
-                    with st.expander("📈 실시간 정밀 차트 보기", expanded=False):
-                        display_detailed_chart(selected_symbol, current_market)
-                    
-                    score_val = selected_data['score']
-                    score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
-                    price_suffix = "원" if current_market != '미국 (US)' else "달러"
-                    
-                    st.markdown(render_premium_metric("현재가", f"{selected_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
-                    st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
-                    
+                # 전문가 기법 해당 여부 확인 섹션 (강조)
+                st.markdown("#### 🧐 전문가 기법 및 수급 확인")
+                exp_cols1 = st.columns(2)
+                with exp_cols1[0]:
+                    st.write("**🥣 주식단테 (밥그릇/2/5/6)**")
+                    if "밥그릇" in selected_data['signals']: st.success("✅ **밥그릇 3번 자리 감지!** (하락 횡보 후 돌파)")
+                    elif "256" in selected_data['signals']: st.info("✅ **256 스윙 타점!** (추세 안착)")
+                    else: st.write("⚪ 조건 미달")
+                
+                with exp_cols1[1]:
+                    st.write("**📦 고쨱짹 (박스돌파/거봉)**")
+                    if "고쨱짹" in selected_data['signals']: st.success("✅ **박스권 돌파 + 수급 대폭발!**")
+                    else: st.write("⚪ 조건 미달")
+                
+                exp_cols2 = st.columns(2)
+                with exp_cols2[0]:
+                    st.write("**🐜 대왕개미 홍인기 (대장주/끼/D+0)**")
+                    if "홍인기" in selected_data['signals']: st.success("✅ **주도주/대장주 탄생의 신호!**")
+                    elif "끼" in selected_data['signals']: st.info("✅ **강력한 '끼' 보유 종목!**")
+                    else: st.write("⚪ 조건 미달")
+                
+                with exp_cols2[1]:
+                    st.write("**🚀 AP투자연구소 김용재**")
+                    if "AP-김용재" in selected_data['signals']: st.success("✅ **맥점 돌파 및 수급 집중!**")
+                    else: st.write("⚪ 조건 미달")
+            
+                exp_cols3 = st.columns(2)
+                with exp_cols3[0]:
+                    st.write("**✨ 오로라 검색기 (낙폭과대)**")
+                    if selected_data.get('aurora', {}).get('signal'): 
+                        st.success("✅ **오로라 반등 시그널 포착!**")
+                        for r in selected_data['aurora']['reasons']:
+                            st.caption(f"• {r}")
+                    else: st.write("⚪ 조건 미달")
+                
+                with exp_cols3[1]:
+                    st.write("**🏆 퓨처온 멘토 군단 분석**")
+                    if selected_data.get('futureon', {}).get('reasons'):
+                        st.success("✅ **퓨처온 멘토 신호 포착!**")
+                        for r in selected_data['futureon']['reasons']:
+                            st.caption(f"• {r}")
+                    else: st.write("⚪ 조건 미달")
+
+                col_chart, col_side = st.columns([2, 1])
+                with col_chart:
+                    display_detailed_chart(selected_symbol, current_market)
+                
+                with col_side:
+                    st.metric("현재가", f"{selected_data['current_price']:,.0f}")
+                    st.metric("종합 점수", f"{selected_data['score']}점")
                     st.markdown("##### 📡 실시간 감지 신호")
-                    st.markdown(render_premium_signals(selected_data['signals']), unsafe_allow_html=True)
+                    for s in selected_data['signals'].split(','):
+                        if s.strip(): st.write(f"- {s.strip()}")
                     
                     st.markdown("##### 💡 전문가 의견")
-                    st.markdown(render_premium_expert_opinion(selected_data['action'], selected_data['action_desc']), unsafe_allow_html=True)
+                    if selected_data['action'] == 'BUY': st.success(f"**{selected_data['action_desc']}**")
+                    else: st.info(f"**{selected_data['action_desc']}**")
                     
-                    if st.button("⭐ 포트폴리오에 추가", use_container_width=True, key="add_to_portfolio_mobile"):
+                    # [신규] 실시간 추천 거래 가이드라인 카드 연동
+                    st.markdown(render_trading_price_guide(selected_symbol, current_market), unsafe_allow_html=True)
+                    
+                    if st.button("⭐ 포트폴리오에 추가", use_container_width=True):
                         p_data = load_portfolio()
                         m_key = 'KR' if "한국" in current_market else ('US' if "미국" in current_market else 'COIN')
                         if selected_symbol not in p_data[m_key]:
@@ -1904,429 +1328,57 @@ with tab_scan:
                             st.success("추가되었습니다!")
                             st.rerun()
                         else: st.warning("이미 등록된 종목입니다.")
-                else:
-                    # PC 환경: 전체 정보 즉시 노출
-                    st.markdown("#### 🧐 전문가 기법 및 수급 확인")
-                    st.markdown(render_premium_strategy_grid(selected_data), unsafe_allow_html=True)
-                    
-                    expert_reasons = []
-                    if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'):
-                        for r in selected_data['aurora']['reasons']:
-                            expert_reasons.append(f"✨ **오로라**: {r}")
-                    if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
-                        for r in selected_data['futureon']['reasons']:
-                            expert_reasons.append(f"🏆 **퓨처온**: {r}")
-                    
-                    if expert_reasons:
-                        with st.expander("📝 기술적 분석 상세 근거 확인", expanded=True):
-                            for reason in expert_reasons:
-                                st.caption(reason)
-
-                    col_chart, col_side = st.columns([2, 1])
-                    with col_chart:
-                        display_detailed_chart(selected_symbol, current_market)
-                    
-                    with col_side:
-                        score_val = selected_data['score']
-                        score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
-                        price_suffix = "원" if current_market != '미국 (US)' else "달러"
-                        
-                        st.markdown(render_premium_metric("현재가", f"{selected_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
-                        st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
-                        st.markdown("##### 📡 실시간 감지 신호")
-                        st.markdown(render_premium_signals(selected_data['signals']), unsafe_allow_html=True)
-                        
-                        st.markdown("##### 💡 전문가 의견")
-                        st.markdown(render_premium_expert_opinion(selected_data['action'], selected_data['action_desc']), unsafe_allow_html=True)
-                        
-                        if st.button("⭐ 포트폴리오에 추가", use_container_width=True):
-                            p_data = load_portfolio()
-                            m_key = 'KR' if "한국" in current_market else ('US' if "미국" in current_market else 'COIN')
-                            if selected_symbol not in p_data[m_key]:
-                                p_data[m_key].append(selected_symbol)
-                                save_portfolio(p_data)
-                                st.success("추가되었습니다!")
-                                st.rerun()
-                            else: st.warning("이미 등록된 종목입니다.")
 
         # --- 공유 및 하단 섹션 ---
         st.markdown("---")
-        st.markdown(f"### 📤 필터링 결과 공유 ({len(df_filtered)}개 종목)")
-        
-        # 필터링된 결과를 리스트로 변환
-        filtered_results = df_filtered.to_dict('records')
-        
-        # 수직 나열 배치
-        if st.button("⭐ 필터결과 포트폴리오 추가", use_container_width=True, help="현재 필터링된 모든 종목을 포트폴리오에 등록합니다."):
-            if not filtered_results:
-                st.warning("추가할 종목이 없습니다.")
-            else:
-                p_data = load_portfolio()
-                m_key = 'KR' if "한국" in current_market else ('US' if "미국" in current_market else 'COIN')
-                added_count = 0
-                for r in filtered_results:
-                    s_code = r['symbol']
-                    if s_code not in p_data[m_key]:
-                        p_data[m_key].append(s_code)
-                        added_count += 1
-                
-                if added_count > 0:
-                    save_portfolio(p_data)
-                    st.success(f"✅ 필터링된 종목 {added_count}개가 추가되었습니다!")
-                    time.sleep(1)
-                    st.rerun()
+        with st.expander(f"📤 필터링 결과 공유 및 리포트 내보내기 ({len(df_filtered)}개 종목)", expanded=False):
+            c1, c2, c3 = st.columns(3)
+            
+            # 필터링된 결과를 리스트로 변환
+            filtered_results = df_filtered.to_dict('records')
+            
+            with c1:
+                if st.button("⭐ 필터결과 포트폴리오 추가", use_container_width=True, help="현재 필터링된 모든 종목을 포트폴리오에 등록합니다."):
+                    if not filtered_results:
+                        st.warning("추가할 종목이 없습니다.")
+                    else:
+                        p_data = load_portfolio()
+                        m_key = 'KR' if "한국" in current_market else ('US' if "미국" in current_market else 'COIN')
+                        added_count = 0
+                        for r in filtered_results:
+                            s_code = r['symbol']
+                            if s_code not in p_data[m_key]:
+                                p_data[m_key].append(s_code)
+                                added_count += 1
+                        
+                        if added_count > 0:
+                            save_portfolio(p_data)
+                            st.success(f"✅ 필터링된 종목 {added_count}개가 추가되었습니다!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            st.info("이미 모두 등록되어 있습니다.")
+
+            with c2:
+                if st.button("📱 필터결과 Telegram 전송", use_container_width=True):
+                    if not filtered_results:
+                        st.warning("전송할 종목이 없습니다.")
+                    else:
+                        report_msg = format_stock_message(filtered_results, f"{current_market} 필터링")
+                        success, msg = send_telegram_message(report_msg)
+                        if success: st.success("전송되었습니다!")
+                        else: st.error(f"실패: {msg}")
+            with c3:
+                if filtered_results:
+                    report_text = format_stock_message(filtered_results, f"{current_market} 필터링").replace("*", "")
+                    st.code(report_text, language="text")
+                    st.caption("필터링된 리포트 텍스트입니다.")
                 else:
-                    st.info("이미 모두 등록되어 있습니다.")
-
-        if st.button("📱 필터결과 Telegram 전송", use_container_width=True):
-            if not filtered_results:
-                st.warning("전송할 종목이 없습니다.")
-            else:
-                with st.spinner("텔레그램 전송 중..."):
-                    report_msg = format_stock_message(filtered_results, f"{current_market} 필터링")
-                    success, msg = send_telegram_message(report_msg)
-                    if success: st.success("전송되었습니다! 🚀")
-                    else: st.error(f"실패: {msg}")
-
-        # 리포트 텍스트 접기/펼치기 구조
-        with st.expander("📋 필터링된 리포트 텍스트 확인 (클릭하여 펼치기)", expanded=False):
-            if filtered_results:
-                report_text = format_stock_message(filtered_results, f"{current_market} 필터링").replace("*", "")
-                st.code(report_text, language="text")
-                st.caption("필터링된 리포트 텍스트입니다. 복사해서 다른 곳에 활용하실 수 있습니다.")
-            else:
-                st.write("필터링된 결과가 없습니다.")
+                    st.write("필터링된 결과가 없습니다.")
 
     else:
         if not run_button and ('scan_results' not in st.session_state):
             st.info("사이드바에서 시장을 선택하고 '스캔 시작' 버튼을 눌러주세요.")
-
-with tab_whale:
-    st.markdown("### 🐳 세력 평단가 & 매매 타점 정밀 분석")
-    st.caption("수급(거래량) 폭증일의 거래량 가중평균 가격(VWAP)을 추정하여 세력 평단가 및 핵심 지지/저항 매매 타점을 안내합니다.")
-    
-    st.markdown("#### 🔍 종목 정밀 세력 분석")
-    
-    # 1. 종목 검색창
-    whale_search_input = st.text_input("🔍 분석할 종목명, 코드, 또는 자음 검색 (예: 삼성전자, AAPL, ㅅㅅ)", key="whale_search_input").strip()
-    
-    if whale_search_input:
-        whale_matches = scanner.search_symbols(whale_search_input)
-        if whale_matches:
-            st.write(f"💡 '{whale_search_input}' 검색 결과 ({len(whale_matches)}개):")
-            
-            # 검색 결과 선택
-            whale_cols = st.columns([3, 1])
-            with whale_cols[0]:
-                selected_whale_match = st.selectbox(
-                    "세력 분석 대상 종목을 선택하세요", 
-                    options=whale_matches, 
-                    format_func=lambda x: x['Display'],
-                    key="selected_whale_match"
-                )
-            with whale_cols[1]:
-                st.write(" ") # 수직 정렬
-                start_whale_analysis = st.button("🐳 세력분석 시작", use_container_width=True, key="start_whale_analysis")
-                
-            if start_whale_analysis:
-                with st.spinner(f"'{selected_whale_match['Name']}' 세력 평단가 및 타점 분석 중..."):
-                    whale_res = scanner.calculate_whale_analysis(selected_whale_match['Symbol'], selected_whale_match['Market'])
-                    if whale_res:
-                        whale_res['Name'] = selected_whale_match['Name']
-                        whale_res['market_type'] = selected_whale_match['Market']
-                        st.session_state['active_whale_analysis'] = whale_res
-                        st.success(f"{whale_res['Name']} ({selected_whale_match['Symbol']}) 세력 분석 완료!")
-                    else:
-                        st.error("충분한 거래 데이터가 없거나 데이터를 가져오는 중 오류가 발생했습니다. (최소 20영업일 이상 필요)")
-        else:
-            st.error("일치하는 종목이 없습니다. 검색어를 확인해 주세요.")
-
-    # 2. 분석 결과 표시
-    if 'active_whale_analysis' in st.session_state and st.session_state['active_whale_analysis']:
-        w_data = st.session_state['active_whale_analysis']
-        
-        st.markdown("---")
-        st.markdown(f"### 🛰️ {w_data['Name']} ({w_data['symbol']}) 세력 분석 리포트")
-        
-        # 3. 목표가/손절가 조정 슬라이더 (사용자 피드백 반영 - 고급 옵션)
-        with st.expander("⚙️ 분석 목표가 / 손절가 비율 개별 조정"):
-            col_adj1, col_adj2, col_adj3 = st.columns(3)
-            # 기본값 설정
-            target_1_pct = col_adj1.slider("1차 목표가 (%)", 5.0, 50.0, 15.0, step=1.0) / 100.0
-            target_2_pct = col_adj2.slider("2차 목표가 (%)", 10.0, 100.0, 30.0, step=1.0) / 100.0
-            stop_loss_pct = col_adj3.slider("손절가 비율 (%)", 3.0, 30.0, 7.0, step=1.0) / 100.0
-            
-            # 조정값 적용
-            w_data['target_price_1'] = w_data['mid_term_basis'] * (1.0 + target_1_pct)
-            w_data['target_price_2'] = w_data['mid_term_basis'] * (1.0 + target_2_pct)
-            w_data['stop_loss'] = w_data['long_term_basis'] * (1.0 - stop_loss_pct)
-            
-            # 손익비 재계산
-            risk = max(1, w_data['current_price'] - w_data['stop_loss'])
-            reward = max(1, w_data['target_price_1'] - w_data['current_price'])
-            w_data['rr_ratio'] = reward / risk
-            
-        # 메트릭 카드 3분할
-        m_col1, m_col2, m_col3 = st.columns(3)
-        
-        with m_col1:
-            st.markdown(f"""
-            <div style="background-color: #1a1c24; padding: 15px; border-radius: 10px; border: 1px solid #30363d; text-align: center;">
-                <p style="margin:0; font-size:0.9em; color:#8b949e;">🔴 단기 세력평단가 (20일)</p>
-                <h3 style="margin:5px 0; color:#ff4b4b;">{w_data['short_term_basis']:,.0f} 원</h3>
-                <small style="color:#58a6ff;">단기 매집 추정 평단</small>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with m_col2:
-            st.markdown(f"""
-            <div style="background-color: #1a1c24; padding: 15px; border-radius: 10px; border: 2px solid #f1c40f; text-align: center; box-shadow: 0 0 10px rgba(241, 196, 15, 0.2);">
-                <p style="margin:0; font-size:0.9em; color:#8b949e;">🏆 중기 세력평단가 (60일)</p>
-                <h3 style="margin:5px 0; color:#f1c40f;">{w_data['mid_term_basis']:,.0f} 원</h3>
-                <small style="color:#2ecc71;">주도 세력 핵심 기준 단가</small>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with m_col3:
-            st.markdown(f"""
-            <div style="background-color: #1a1c24; padding: 15px; border-radius: 10px; border: 1px solid #30363d; text-align: center;">
-                <p style="margin:0; font-size:0.9em; color:#8b949e;">🐳 장기 세력평단가 (120일)</p>
-                <h3 style="margin:5px 0; color:#9b59b6;">{w_data['long_term_basis']:,.0f} 원</h3>
-                <small style="color:#e67e22;">장기 매집 및 최종 보루</small>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        st.write("")
-        
-        # 실시간 매매 상태 지침 및 손익비 카드
-        guide_col1, guide_col2 = st.columns([2, 1])
-        
-        curr_price = w_data['current_price']
-        b_lower, b_upper = w_data['buy_zone']
-        
-        # 실시간 매매 상태 판별
-        if curr_price < w_data['stop_loss']:
-            status_color = "#e74c3c"
-            status_text = "🚨 최종 손절가 이탈! 리스크 관리 시급"
-            action_desc_txt = "추세 이탈 우려 구간이므로 신규 진입을 금지하고, 기존 보유 물량은 비중 축소 및 손절 처리를 적극 권장합니다."
-        elif b_lower <= curr_price <= b_upper:
-            status_color = "#2ecc71"
-            status_text = "🟢 최적의 눌림목 분할 매수 영역!"
-            action_desc_txt = "현재 주가가 중기 세력평단가 밴드 내에 위치하고 있습니다. 세력의 매집 단가와 밀접하여 손절 리스크가 낮고 반등 확률이 높은 최적의 진입 시점입니다."
-        elif curr_price < b_lower:
-            status_color = "#f39c12"
-            status_text = "🟡 바닥 지지 확인 및 저가 매수 구간"
-            action_desc_txt = "주가가 세력 평단가 하단선 아래로 내려왔으나 최종 손절선(장기평단가) 위에 위치하여 지지를 확인하고 있습니다. 분할 매수 접근은 유효하나, 반등 거래량이 실릴 때 비중을 싣는 것이 유리합니다."
-        elif curr_price > w_data['target_price_1']:
-            status_color = "#9b59b6"
-            status_text = "🔵 1차 목표가 도달! 분할 익절 권장"
-            action_desc_txt = "세력 평단가 대비 15% 이상 급등하여 1차 목표가 또는 강한 저항선 위에 위치하고 있습니다. 추격 매수를 자제하고 리스크 관리를 위해 보유 물량의 30~50%는 수익 실현(익절)하는 것을 권장합니다."
-        else: # b_upper < curr_price <= target_price_1
-            # 괴리율 계산
-            gap_pct = ((curr_price - w_data['mid_term_basis']) / w_data['mid_term_basis']) * 100
-            status_color = "#3498db"
-            status_text = f"👀 상승 추세 유지 (평단가 대비 +{gap_pct:.1f}%)"
-            action_desc_txt = f"세력 평단가를 상회하며 안정적 상승 추세를 이어가고 있습니다. 신규 매수 시에는 약간의 눌림 조정(목표 매수가: {b_upper:,.0f}원 이하)을 기다리거나, {w_data['breakout_point']:,.0f}원 돌파 시 돌파 매수로 접근하십시오."
-
-        with guide_col1:
-            st.markdown(f"""
-            <div style="background-color: #1a1c24; padding: 20px; border-radius: 10px; border: 1px solid #30363d; min-height: 220px;">
-                <h4 style="margin-top:0; color:{status_color};">{status_text}</h4>
-                <p style="color:#adbac7; font-size:0.95em; line-height:1.6;">{action_desc_txt}</p>
-                <div style="display:flex; gap:10px; margin-top:15px; flex-wrap:wrap;">
-                    <span style="background-color:rgba(46, 204, 113, 0.1); color:#2ecc71; padding:3px 8px; border-radius:4px; font-size:0.85em; font-weight:bold;">👉 매수 밴드: {b_lower:,.0f} ~ {b_upper:,.0f} 원</span>
-                    <span style="background-color:rgba(52, 152, 219, 0.1); color:#3498db; padding:3px 8px; border-radius:4px; font-size:0.85em; font-weight:bold;">🚀 돌파 기준가: {w_data['breakout_point']:,.0f} 원</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with guide_col2:
-            # 손익비 신호 및 보고서
-            rr = w_data['rr_ratio']
-            if rr >= 2.0:
-                rr_badge = '<span style="background-color:#2ecc71; color:white; padding:2px 6px; border-radius:4px; font-weight:bold;">매우 우수</span>'
-            elif rr >= 1.2:
-                rr_badge = '<span style="background-color:#3498db; color:white; padding:2px 6px; border-radius:4px; font-weight:bold;">보통</span>'
-            else:
-                rr_badge = '<span style="background-color:#e74c3c; color:white; padding:2px 6px; border-radius:4px; font-weight:bold;">불리</span>'
-                
-            st.markdown(f"""
-            <div style="background-color: #1a1c24; padding: 20px; border-radius: 10px; border: 1px solid #30363d; min-height: 220px;">
-                <h5 style="margin-top:0; color:#58a6ff;">📊 매매 시나리오 요약</h5>
-                <table style="width:100%; font-size:0.85em; border-collapse:collapse; color:#adbac7;">
-                    <tr style="border-bottom:1px solid #22272e;"><td style="padding:6px 0;">현재가</td><td style="text-align:right; font-weight:bold; color:white;">{curr_price:,.0f} 원</td></tr>
-                    <tr style="border-bottom:1px solid #22272e;"><td style="padding:6px 0;">1차 목표가</td><td style="text-align:right; font-weight:bold; color:#2ecc71;">{w_data['target_price_1']:,.0f} 원</td></tr>
-                    <tr style="border-bottom:1px solid #22272e;"><td style="padding:6px 0;">2차 목표가</td><td style="text-align:right; font-weight:bold; color:#3498db;">{w_data['target_price_2']:,.0f} 원</td></tr>
-                    <tr style="border-bottom:1px solid #22272e;"><td style="padding:6px 0;">최종 손절가</td><td style="text-align:right; font-weight:bold; color:#e74c3c;">{w_data['stop_loss']:,.0f} 원</td></tr>
-                    <tr><td style="padding:6px 0;">추정 손익비</td><td style="text-align:right; font-weight:bold; color:white;">{rr:.2f}배 ({rr_badge})</td></tr>
-                </table>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        st.write("")
-        
-        # 4. 세력 분석 맞춤형 Plotly 차트
-        st.subheader("🐳 세력 매매 타점 시각화 차트")
-        
-        # 차트용 데이터
-        c_df = w_data['df']
-        c_df = c_df.iloc[-120:].copy() # 최근 120일
-        
-        import plotly.graph_objects as go
-        from plotly.subplots import make_subplots
-        
-        # 2단 서브플롯 구성 (캔들스틱 + 거래량)
-        c_fig = make_subplots(
-            rows=2, cols=1, 
-            shared_xaxes=True, 
-            vertical_spacing=0.08, 
-            subplot_titles=(f'📈 {w_data["Name"]} 캔들스틱 및 세력 타점', '📊 거래량 및 세력 수급'),
-            row_heights=[0.75, 0.25]
-        )
-        
-        # 4.1 캔들스틱 추가
-        c_fig.add_trace(go.Candlestick(
-            x=c_df.index, 
-            open=c_df['Open'], 
-            high=c_df['High'], 
-            low=c_df['Low'], 
-            close=c_df['Close'], 
-            name='주가'
-        ), row=1, col=1)
-        
-        # 4.2 세력 평단가 라인 추가 (중기 평단가를 굵게, 단기/장기를 얇게)
-        c_fig.add_trace(go.Scatter(
-            x=c_df.index, 
-            y=[w_data['short_term_basis']]*len(c_df), 
-            line=dict(color='rgba(255, 75, 75, 0.6)', width=1, dash='dash'), 
-            name='단기 세력평단 (20일)'
-        ), row=1, col=1)
-        
-        c_fig.add_trace(go.Scatter(
-            x=c_df.index, 
-            y=[w_data['mid_term_basis']]*len(c_df), 
-            line=dict(color='#f1c40f', width=2.5), 
-            name='🏆 중기 세력평단 (60일)'
-        ), row=1, col=1)
-        
-        c_fig.add_trace(go.Scatter(
-            x=c_df.index, 
-            y=[w_data['long_term_basis']]*len(c_df), 
-            line=dict(color='#9b59b6', width=1, dash='dash'), 
-            name='장기 세력평단 (120일)'
-        ), row=1, col=1)
-        
-        # 4.3 목표가 및 손절가 추가 (점선 및 실선)
-        c_fig.add_trace(go.Scatter(
-            x=c_df.index, 
-            y=[w_data['target_price_1']]*len(c_df), 
-            line=dict(color='#2ecc71', width=1.5, dash='dot'), 
-            name='1차 목표가'
-        ), row=1, col=1)
-        
-        c_fig.add_trace(go.Scatter(
-            x=c_df.index, 
-            y=[w_data['target_price_2']]*len(c_df), 
-            line=dict(color='#3498db', width=1.5, dash='dot'), 
-            name='2차 목표가'
-        ), row=1, col=1)
-        
-        c_fig.add_trace(go.Scatter(
-            x=c_df.index, 
-            y=[w_data['stop_loss']]*len(c_df), 
-            line=dict(color='#e74c3c', width=2), 
-            name='🚨 최종 손절선'
-        ), row=1, col=1)
-        
-        # 4.4 매수 밴드 음영 영역 채우기
-        c_fig.add_shape(
-            type="rect",
-            x0=c_df.index[0], y0=b_lower,
-            x1=c_df.index[-1], y1=b_upper,
-            fillcolor="rgba(46, 204, 113, 0.08)",
-            line=dict(width=0),
-            layer="below",
-            row=1, col=1
-        )
-        
-        # 4.5 거래량 차트 추가
-        c_df['MA20_Vol'] = c_df['Volume'].rolling(window=20).mean().fillna(method='bfill')
-        vol_colors = []
-        for idx, row in c_df.iterrows():
-            if row['Volume'] > row['MA20_Vol'] * 1.8:
-                vol_colors.append('#f1c40f') # 수급 급증일: 골드
-            else:
-                vol_colors.append('rgba(88, 166, 255, 0.3)') # 일반 거래일: 반투명 블루
-                
-        c_fig.add_trace(go.Bar(
-            x=c_df.index, 
-            y=c_df['Volume'], 
-            marker_color=vol_colors, 
-            name='거래량'
-        ), row=2, col=1)
-        
-        c_fig.update_layout(
-            height=450 if mobile_view else 700, # 모바일일 경우 차트 높이를 적절히 조절
-            template="plotly_dark", 
-            showlegend=True, 
-            xaxis_rangeslider_visible=False, 
-            margin=dict(l=5, r=5, t=30, b=5),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        
-        if mobile_view:
-            with st.expander("📈 세력 매매 타점 차트 펼치기 (터치)", expanded=False):
-                st.plotly_chart(c_fig, use_container_width=True)
-        else:
-            st.plotly_chart(c_fig, use_container_width=True)
-        
-        # 5. 세력 지표 요약 진단표
-        st.markdown("#### 🕵️ 세력 매집 시그널 종합 판정표")
-        s_col_t1, s_col_t2 = st.columns(2)
-        
-        whale_days_count = w_data['whale_activity_count']
-        
-        with s_col_t1:
-            st.markdown(f"""
-            <div style="background-color: #1a1c24; padding: 15px; border-radius: 10px; border: 1px solid #30363d; min-height: 180px;">
-                <h5 style="margin-top:0; color:#58a6ff;">🔥 수급 강도 및 활동 빈도</h5>
-                <ul style="color:#adbac7; font-size:0.9em; line-height:1.6; padding-left:20px;">
-                    <li>최근 120일 내 <b>세력 대량 거래 개입일</b>: <b>{whale_days_count}회</b> 포착</li>
-                    <li>현재가 대비 중기 평단가 이격도: <b>{((curr_price - w_data['mid_term_basis'])/w_data['mid_term_basis'])*100:.2f}%</b></li>
-                    <li>현재 MFI (자금유입지수): <b>{c_df['MFI'].iloc[-1]:.1f}</b></li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with s_col_t2:
-            st.markdown(f"""
-            <div style="background-color: #1a1c24; padding: 15px; border-radius: 10px; border: 1px solid #30363d; min-height: 180px;">
-                <h5 style="margin-top:0; color:#58a6ff;">⚖️ 리스크 대비 기대 수익 요약</h5>
-                <ul style="color:#adbac7; font-size:0.9em; line-height:1.6; padding-left:20px;">
-                    <li>1차 목표가 기대수익률: <b style="color:#2ecc71;">+{((w_data['target_price_1'] - curr_price)/curr_price)*100:.1f}%</b></li>
-                    <li>2차 목표가 기대수익률: <b style="color:#3498db;">+{((w_data['target_price_2'] - curr_price)/curr_price)*100:.1f}%</b></li>
-                    <li>최종 손절선 예상손실률: <b style="color:#e74c3c;">-{((curr_price - w_data['stop_loss'])/curr_price)*100:.1f}%</b></li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        # 포트폴리오 즉시 추가 연계 버튼
-        if st.button("⭐ 현재 분석한 종목을 포트폴리오에 등록", use_container_width=True, key="add_whale_to_portfolio"):
-            p_data = load_portfolio()
-            m_key = w_data['market_type']
-            if w_data['symbol'] not in p_data[m_key]:
-                p_data[m_key].append(w_data['symbol'])
-                save_portfolio(p_data)
-                st.success("보유 포트폴리오에 성공적으로 등록되었습니다!")
-            else:
-                st.warning("이미 등록된 종목입니다.")
-                
-        # 검색 결과 지우기
-        if st.button("❌ 세력 분석 결과 지우기", use_container_width=True, key="clear_active_whale"):
-            del st.session_state['active_whale_analysis']
-            st.rerun()
-    else:
-        st.info("💡 위의 검색창에서 종목명을 입력하고 '세력분석 시작' 버튼을 누르면 평단가와 지지선, 목표가/손절가 정보가 상세하게 출력됩니다.")
 
 with tab_portfolio:
     st.markdown("### 💼 나의 포트폴리오 관리")
@@ -2448,21 +1500,12 @@ with tab_portfolio:
                 
                 # 데이터 그리드 (다중 선택 활성화)
                 st.write("**현재 현황** (아래 표에서 종목을 선택하여 복수 삭제가 가능합니다.)")
+                display_cols = ['action', 'action_desc', 'name', 'symbol', 'score', 'current_price', 'rsi', 'signals']
                 
-                if mobile_view:
-                    # 모바일용 컴팩트 컬럼
-                    display_cols = ['action', 'name', 'score', 'current_price']
-                    df_m_display = df_m[display_cols].copy()
-                    if not df_m_display.empty and 'action' in df_m_display.columns:
-                        df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
-                    df_m_display.columns = ['액션', '종목명', '점수', '현재가']
-                else:
-                    # PC용 전체 컬럼
-                    display_cols = ['action', 'action_desc', 'name', 'symbol', 'score', 'current_price', 'rsi', 'signals']
-                    df_m_display = df_m[display_cols].copy()
-                    if not df_m_display.empty and 'action' in df_m_display.columns:
-                        df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
-                    df_m_display.columns = ['액션', '상태', '종목명', '코드', '점수', '현재가', 'RSI', '상세신호']
+                # [개선] 셀 배경색(styling)은 Streamlit 버그(removeChild)를 유발하므로, 이모지를 활용해 직관적인 색상을 부여합니다.
+                df_m_display = df_m[display_cols].copy()
+                if not df_m_display.empty and 'action' in df_m_display.columns:
+                    df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
 
                 selection = st.dataframe(
                     df_m_display,
@@ -2506,70 +1549,66 @@ with tab_portfolio:
                         st.markdown("---")
                         st.markdown(f"### 📈 {selected_data['name']} ({selected_symbol}) 정밀 분석")
                         
-                        if mobile_view:
-                            # 모바일 최적화: 전문가 매매법과 차트를 expander 내부로 수납하여 접어둠
-                            with st.expander("🧐 전문가 기법 및 수급 확인 (클릭하여 펼치기)", expanded=False):
-                                st.markdown(render_premium_strategy_grid(selected_data), unsafe_allow_html=True)
-                                expert_reasons = []
-                                if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'):
-                                    for r in selected_data['aurora']['reasons']:
-                                        expert_reasons.append(f"✨ **오로라**: {r}")
-                                if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
-                                    for r in selected_data['futureon']['reasons']:
-                                        expert_reasons.append(f"🏆 **퓨처온**: {r}")
-                                if expert_reasons:
-                                    for reason in expert_reasons:
-                                        st.caption(reason)
-                            
-                            with st.expander("📈 실시간 정밀 차트 보기", expanded=False):
-                                display_detailed_chart(selected_symbol, m_key)
-                                
-                            score_val = selected_data['score']
-                            score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
-                            price_suffix = "원" if m_key != 'US' else "달러"
-                            
-                            st.markdown(render_premium_metric("현재가", f"{selected_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
-                            st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
-                            
+                        # 전문가 기법 해당 여부 확인 섹션 (강조)
+                        st.markdown("#### 🧐 전문가 기법 및 수급 확인")
+                        exp_cols1 = st.columns(2)
+                        with exp_cols1[0]:
+                            st.write("**🥣 주식단테 (밥그릇/2/5/6)**")
+                            if "밥그릇" in str(selected_data['signals']): st.success("✅ **밥그릇 3번 자리 감지!** (하락 횡보 후 돌파)")
+                            elif "256" in str(selected_data['signals']): st.info("✅ **256 스윙 타점!** (추세 안착)")
+                            else: st.write("⚪ 조건 미달")
+                        
+                        with exp_cols1[1]:
+                            st.write("**📦 고쨱짹 (박스돌파/거봉)**")
+                            if "고쨱짹" in str(selected_data['signals']): st.success("✅ **박스권 돌파 + 수급 대폭발!**")
+                            else: st.write("⚪ 조건 미달")
+                        
+                        exp_cols2 = st.columns(2)
+                        with exp_cols2[0]:
+                            st.write("**🐜 대왕개미 홍인기 (대장주/끼/D+0)**")
+                            if "홍인기" in str(selected_data['signals']): st.success("✅ **주도주/대장주 탄생의 신호!**")
+                            elif "끼" in str(selected_data['signals']): st.info("✅ **강력한 '끼' 보유 종목!**")
+                            else: st.write("⚪ 조건 미달")
+                        
+                        with exp_cols2[1]:
+                            st.write("**🚀 AP투자연구소 김용재**")
+                            if "AP-김용재" in str(selected_data['signals']): st.success("✅ **맥점 돌파 및 수급 집중!**")
+                            else: st.write("⚪ 조건 미달")
+                    
+                        exp_cols3 = st.columns(2)
+                        with exp_cols3[0]:
+                            st.write("**✨ 오로라 검색기 (낙폭과대)**")
+                            if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'): 
+                                st.success("✅ **오로라 반등 시그널 포착!**")
+                                for r in selected_data['aurora']['reasons']:
+                                    st.caption(f"• {r}")
+                            else: st.write("⚪ 조건 미달")
+                        
+                        with exp_cols3[1]:
+                            st.write("**🏆 퓨처온 멘토 군단 분석**")
+                            if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
+                                st.success("✅ **퓨처온 멘토 신호 포착!**")
+                                for r in selected_data['futureon']['reasons']:
+                                    st.caption(f"• {r}")
+                            else: st.write("⚪ 조건 미달")
+
+                        col_chart, col_side = st.columns([2, 1])
+                        with col_chart:
+                            display_detailed_chart(selected_symbol, m_key)
+                        
+                        with col_side:
+                            st.metric("현재가", f"{selected_data['current_price']:,.0f}")
+                            st.metric("종합 점수", f"{selected_data['score']}점")
                             st.markdown("##### 📡 실시간 감지 신호")
-                            st.markdown(render_premium_signals(selected_data['signals']), unsafe_allow_html=True)
+                            for s in str(selected_data['signals']).split(','):
+                                if s.strip(): st.write(f"- {s.strip()}")
                             
                             st.markdown("##### 💡 전문가 의견")
-                            st.markdown(render_premium_expert_opinion(selected_data['action'], selected_data['action_desc']), unsafe_allow_html=True)
-                        else:
-                            # PC 환경: 모든 정보 즉시 상세 노출
-                            st.markdown("#### 🧐 전문가 기법 및 수급 확인")
-                            st.markdown(render_premium_strategy_grid(selected_data), unsafe_allow_html=True)
+                            if selected_data['action'] == 'BUY': st.success(f"**{selected_data['action_desc']}**")
+                            else: st.info(f"**{selected_data['action_desc']}**")
                             
-                            expert_reasons = []
-                            if isinstance(selected_data.get('aurora'), dict) and selected_data.get('aurora', {}).get('signal'):
-                                for r in selected_data['aurora']['reasons']:
-                                    expert_reasons.append(f"✨ **오로라**: {r}")
-                            if isinstance(selected_data.get('futureon'), dict) and selected_data.get('futureon', {}).get('reasons'):
-                                for r in selected_data['futureon']['reasons']:
-                                    expert_reasons.append(f"🏆 **퓨처온**: {r}")
-                            
-                            if expert_reasons:
-                                with st.expander("📝 기술적 분석 상세 근거 확인", expanded=True):
-                                    for reason in expert_reasons:
-                                        st.caption(reason)
-
-                            col_chart, col_side = st.columns([2, 1])
-                            with col_chart:
-                                display_detailed_chart(selected_symbol, m_key)
-                            
-                            with col_side:
-                                score_val = selected_data['score']
-                                score_color = '#26a69a' if score_val >= 70 else ('#ef5350' if score_val < 40 else '#f1c40f')
-                                price_suffix = "원" if m_key != 'US' else "달러"
-                                
-                                st.markdown(render_premium_metric("현재가", f"{selected_data['current_price']:,.0f}", price_suffix), unsafe_allow_html=True)
-                                st.markdown(render_premium_metric("종합 점수", f"{score_val}", "점", score_color), unsafe_allow_html=True)
-                                st.markdown("##### 📡 실시간 감지 신호")
-                                st.markdown(render_premium_signals(selected_data['signals']), unsafe_allow_html=True)
-                                
-                                st.markdown("##### 💡 전문가 의견")
-                                st.markdown(render_premium_expert_opinion(selected_data['action'], selected_data['action_desc']), unsafe_allow_html=True)
+                            # [신규] 실시간 추천 거래 가이드라인 카드 연동
+                            st.markdown(render_trading_price_guide(selected_symbol, m_key), unsafe_allow_html=True)
                 
                 # [추가] 테이블 선택이 어려운 경우를 위한 드롭다운 삭제 (백업 방식)
                 with st.expander("⚠️ 표 선택이 안 되시나요? (이름으로 삭제)"):
@@ -2581,7 +1620,8 @@ with tab_portfolio:
                         st.rerun()
             else:
                 st.info(f"등록된 {m_key} 보유 종목이 없습니다.")
-
+    
+# --- [주도테마백과사전 & 주식 쉐도잉 탭] ---
 with tab_dict:
     st.markdown("### 📚 주도주·테마 백과사전 & 주식 쉐도잉")
     st.caption("유튜브 영상(RhMRtXb_95E)에 수록된 '주식 쉐도잉' 및 '나만의 테마/종목 DB 훈련'을 보조하는 디지털 도구입니다.")
@@ -2589,485 +1629,110 @@ with tab_dict:
     # 1. 데이터 불러오기
     shadow_data = load_shadowing_data()
     
-    # 2. 서브 탭 구성
-    sub_dict_tab, sub_shadow_tab, sub_trend_tab = st.tabs([
-        "📚 1. 주도 테마 백과사전", 
-        "✍️ 2. 주식 쉐도잉 일일 기록기", 
-        "📅 3. 키워드 캘린더 & 트렌드 분석"
-    ])
+    # [신규] 실시간 시장 주도 테마 자동 반영 엔진 UI 배치
+    st.markdown("##### ⚡ 실시간 주도 테마 자동 동기화 엔진")
     
-    # --- 서브 탭 1: 주도 테마 백과사전 ---
-    with sub_dict_tab:
-        st.markdown("#### 🔍 나만의 테마·종목 사전")
-        st.caption("시장에서 등장한 주도 업종, 테마와 관련 대장주들을 정형화된 DB로 구축합니다.")
-        
-        # 검색창 (자음/초성 검색 지원)
-        search_kw = st.text_input("🔍 테마명 또는 종목명 검색 (예: 반도체, 한미반도체, ㅂㄷㅊ)", key="dict_search_input").strip()
-        
-        # 테마 신규 등록 폼
-        with st.expander("➕ 새로운 주도 테마 / 관련 종목 수동 등록"):
-            col_add_t1, col_add_t2 = st.columns(2)
-            new_theme_name = col_add_t1.text_input("테마명 (예: 우주항공 / 위성)", key="new_theme_name").strip()
-            new_theme_stocks = col_add_t2.text_input("관련 종목 (쉼표로 구분, 예: AP위성, 켄코아에어로스페이스)", key="new_theme_stocks").strip()
-            new_theme_reason = st.text_area("상승 이유 및 주요 재료 (뉴스 키워드 등)", key="new_theme_reason").strip()
-            
-            if st.button("💾 백과사전에 테마 등록", use_container_width=True):
-                if not new_theme_name or not new_theme_stocks:
-                    st.warning("테마명과 관련 종목은 필수 입력 항목입니다.")
-                else:
-                    new_id = f"theme_{int(time.time())}"
-                    new_theme_entry = {
-                        "id": new_id,
-                        "theme": new_theme_name,
-                        "stocks": new_theme_stocks,
-                        "reason": new_theme_reason,
-                        "last_updated": datetime.now().strftime('%Y-%m-%d')
-                    }
-                    shadow_data["dictionary"].append(new_theme_entry)
-                    if save_shadowing_data(shadow_data):
-                        st.success(f"✅ '{new_theme_name}' 테마가 백과사전에 성공적으로 등록되었습니다!")
-                        time.sleep(1)
-                        st.rerun()
-        
-        # 검색 필터링 로직
-        filtered_dict = []
-        for entry in shadow_data["dictionary"]:
-            theme_val = entry.get("theme", "")
-            stocks_val = entry.get("stocks", "")
-            reason_val = entry.get("reason", "")
-            
-            if not search_kw:
-                filtered_dict.append(entry)
-            else:
-                # 일반 문자열 및 초성 매칭
-                q_choseong = get_choseong(search_kw)
-                is_cons = is_consonant_only(search_kw)
-                
-                theme_cho = get_choseong(theme_val)
-                stocks_cho = get_choseong(stocks_val)
-                
-                # 매칭 여부 판정
-                match_found = False
-                if is_cons:
-                    if q_choseong in theme_cho or q_choseong in stocks_cho:
-                        match_found = True
-                else:
-                    search_kw_upper = search_kw.upper()
-                    if (search_kw_upper in theme_val.upper() or 
-                        search_kw_upper in stocks_val.upper() or 
-                        search_kw_upper in reason_val.upper()):
-                        match_found = True
-                        
-                if match_found:
-                    filtered_dict.append(entry)
-                    
-        # 필터링된 사전 카드형 시각화
-        if filtered_dict:
-            st.markdown(f"💡 총 **{len(filtered_dict)}개**의 테마가 조회되었습니다.")
-            
-            # 2단 그리드 형태로 출력
-            for j in range(0, len(filtered_dict), 2):
-                cols_cards = st.columns(2)
-                for k in range(2):
-                    idx_card = j + k
-                    if idx_card < len(filtered_dict):
-                        card = filtered_dict[idx_card]
-                        with cols_cards[k]:
-                            # 프리미엄 Glassmorphism 카드 레이아웃
-                            st.markdown(f"""
-                            <div style="
-                                background: linear-gradient(135deg, rgba(30, 37, 54, 0.95) 0%, rgba(16, 21, 31, 0.99) 100%) !important;
-                                border: 1px solid rgba(88, 166, 255, 0.15) !important;
-                                border-radius: 12px !important;
-                                padding: 18px !important;
-                                margin-bottom: 12px !important;
-                                box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
-                                position: relative !important;
-                            ">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                    <span style="font-size: 1.1em; font-weight: 800; color: #58a6ff !important; text-shadow: 0 0 8px rgba(88,166,255,0.3);">📚 {card['theme']}</span>
-                                    <span style="font-size: 0.72em; color: #8b949e !important;">🕒 {card['last_updated']}</span>
-                                </div>
-                                <div style="margin-bottom: 8px;">
-                                    <span style="font-size: 0.76em; color: #8b949e; font-weight: bold; text-transform: uppercase;">🔥 주요 종목</span>
-                                    <p style="margin: 4px 0 0 0; color: #2ecc71 !important; font-weight: 700; font-size: 0.9em; line-height: 1.4;">{card['stocks']}</p>
-                                </div>
-                                <div>
-                                    <span style="font-size: 0.76em; color: #8b949e; font-weight: bold; text-transform: uppercase;">💡 핵심 상승 재료</span>
-                                    <p style="margin: 4px 0 0 0; color: #f0f6fc !important; font-size: 0.82em; line-height: 1.5; font-weight: 500;">{card['reason']}</p>
-                                </div>
-                            </div>
-                            """, unsafe_allow_html=True)
-                            
-                            # 삭제 및 수정 버튼을 st.button으로 구현
-                            c_card_del, c_card_edit = st.columns([1, 4])
-                            with c_card_del:
-                                if st.button("🗑️ 삭제", key=f"del_theme_{card['id']}", help="테마를 삭제합니다."):
-                                    shadow_data["dictionary"] = [x for x in shadow_data["dictionary"] if x["id"] != card["id"]]
-                                    if save_shadowing_data(shadow_data):
-                                        st.success("테마가 삭제되었습니다!")
-                                        time.sleep(0.5)
-                                        st.rerun()
-        else:
-            st.warning("일치하는 테마 데이터가 사전 데이터에 없습니다. 검색어나 철자를 확인하시거나 새로 등록해 보세요.")
-            
-    # --- 서브 탭 2: 주식 쉐도잉 일일 기록기 ---
-    with sub_shadow_tab:
-        st.markdown("#### ✍️ 주식 쉐도잉 (Stock Shadowing) 훈련장")
-        st.info("💡 **주식 쉐도잉 원칙**: 장 마감 후 매일 상승률 15% 이상 & 거래대금 500억 이상 터진 주도주를 찾고 상승 이유와 재료를 기록함으로써 시장의 돈 흐름을 체계적으로 훈련합니다.")
-        
-        # [혁신 연동 기능] 오늘 스캔 결과에서 자동 완성하기
-        st.markdown("##### 🚀 원클릭 데이터 연동 헬퍼")
-        
-        scan_data_exists = 'scan_results' in st.session_state and st.session_state['scan_results']
-        
-        if scan_data_exists:
-            scan_opts = st.session_state['scan_results']
-            # 점수 및 등락률 우수 종목들만 필터링
-            eligible_stocks = [s for s in scan_opts if s['score'] >= 60 or abs(s['change_rate']) >= 10]
-            
-            if eligible_stocks:
-                st.caption(f"💡 오늘 '{st.session_state.get('current_market', '시장')}' 스캔 결과 중 쉐도잉 적합 종목이 {len(eligible_stocks)}개 감지되었습니다. 아래에서 선택하면 입력 폼이 자동으로 채워집니다!")
-                
-                selected_scan_helper = st.selectbox(
-                    "오늘 스캔한 우수 종목 중 선택",
-                    options=eligible_stocks,
-                    format_func=lambda x: f"📈 {x['Name']} ({x['symbol']}) | 등락률: {x['change_rate']:+.1f}% | 점수: {x['score']}점",
-                    key="dict_scan_helper_select"
-                )
-                
-                if st.button("⚡ 선택한 종목 정보로 아래 폼 자동완성", type="secondary"):
-                    # 자동완성을 위한 세션 스테이트 설정
-                    st.session_state['shadow_form_keyword'] = selected_scan_helper.get('signals', '').split("🚀")[0].split(",")[0].strip()[:10] if selected_scan_helper.get('signals') else ""
-                    st.session_state['shadow_form_stocks'] = selected_scan_helper['Name']
-                    st.session_state['shadow_form_reason'] = f"당일 기술적 분석 종합점수 {selected_scan_helper['score']}점 획득. 감지 신호: {selected_scan_helper['signals']}"
-                    st.success("폼에 데이터가 성공적으로 주입되었습니다! 하단에서 추가 내용을 보완하여 저장하세요.")
-            else:
-                st.caption("오늘 스캔한 종목 중 점수 60점 이상 또는 등락률 10% 이상인 종목이 없어 자동완성이 불가능합니다.")
-        else:
-            st.caption("📢 **알림**: '종목 스캔' 탭에서 시장 스캔을 먼저 실행하시면, 여기에 스캔 완료 종목 정보로 입력 폼을 즉시 채워주는 원클릭 자동완성 헬퍼 기능이 활성화됩니다.")
-            
-        st.markdown("---")
-        st.markdown("##### 📝 오늘의 쉐도잉 일지 작성")
-        
-        # 세션 스테이트 기본값 설정
-        form_keyword_val = st.session_state.get('shadow_form_keyword', "")
-        form_stocks_val = st.session_state.get('shadow_form_stocks', "")
-        form_reason_val = st.session_state.get('shadow_form_reason', "")
-        
-        # 쉐도잉 일지 입력 폼
-        shadow_date = st.date_input("날짜 선택", value=datetime.now(), key="shadow_date_input")
-        
-        # 텍스트 인풋 생성 (세션 키 바인딩)
-        shadow_keyword = st.text_input("주도 키워드 / 테마 (예: 반도체 CXL, 비만치료제)", value=form_keyword_val, key="shadow_keyword_input").strip()
-        shadow_stocks = st.text_input("주도 종목명 (예: 네오셈, 제주반도체)", value=form_stocks_val, key="shadow_stocks_input").strip()
-        shadow_reason = st.text_area("상승 이유 및 거래 재료 (장 마감 분석 핵심 기재)", value=form_reason_val, key="shadow_reason_input").strip()
-        
-        if st.button("✍️ 쉐도잉 일지 기록 저장", type="primary", use_container_width=True):
-            if not shadow_keyword or not shadow_stocks or not shadow_reason:
-                st.warning("모든 필드(키워드, 종목명, 상승이유)를 성실히 채워주세요.")
-            else:
-                new_record = {
-                    "date": shadow_date.strftime('%Y-%m-%d'),
-                    "keyword": shadow_keyword,
-                    "stocks": shadow_stocks,
-                    "reason": shadow_reason
-                }
-                shadow_data["records"].append(new_record)
-                
-                # 백과사전에도 없는 테마라면 자동 등재해줄지 여부 (자동 확장성 스마트 기능)
-                theme_exists_in_dict = any(x["theme"].replace(" ", "").upper() in shadow_keyword.replace(" ", "").upper() for x in shadow_data["dictionary"])
-                if not theme_exists_in_dict:
-                    new_theme_auto = {
-                        "id": f"theme_{int(time.time())}",
-                        "theme": shadow_keyword,
-                        "stocks": shadow_stocks,
-                        "reason": f"({shadow_date.strftime('%Y-%m-%d')} 쉐도잉 기록에서 자동 등재됨) {shadow_reason}",
-                        "last_updated": shadow_date.strftime('%Y-%m-%d')
-                    }
-                    shadow_data["dictionary"].append(new_theme_auto)
-                    st.info(f"💡 '{shadow_keyword}' 테마가 백과사전에도 자동으로 신규 등재되었습니다!")
-                
-                if save_shadowing_data(shadow_data):
-                    # 쉐도잉 입력창 초기화
-                    st.session_state['shadow_form_keyword'] = ""
-                    st.session_state['shadow_form_stocks'] = ""
-                    st.session_state['shadow_form_reason'] = ""
-                    
-                    st.success("✅ 오늘의 쉐도잉 일지가 안전하게 로컬 DB에 기록되었습니다! 훈련 누적 완료!")
-                    time.sleep(1)
-                    st.rerun()
-                    
-    # --- 서브 탭 3: 키워드 캘린더 & 트렌드 분석 ---
-    with sub_trend_tab:
-        st.markdown("#### 📊 시장 주도 테마 트렌드 & 지속 강도 분석")
-        st.caption("작성하신 쉐도잉 일지를 바탕으로 시장 내 테마들의 점유율(출현 빈도)과 트렌드 흐름을 숫자로 정량화합니다.")
-        
-        records_list = shadow_data.get("records", [])
-        
-        if records_list:
-            df_rec = pd.DataFrame(records_list)
-            # 날짜 정렬
-            df_rec['date'] = pd.to_datetime(df_rec['date'])
-            df_rec = df_rec.sort_values(by='date', ascending=False).reset_index(drop=True)
-            
-            # --- 1) 지배적인 주도 테마 1위 분석 메트릭 ---
-            keyword_counts = df_rec['keyword'].value_counts()
-            if not keyword_counts.empty:
-                top_theme = keyword_counts.index[0]
-                top_count = keyword_counts.iloc[0]
-                
-                st.markdown("##### 🏆 이 달의 최강 주도 테마 (지배력 1위)")
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, rgba(241, 196, 15, 0.18) 0%, rgba(16, 20, 28, 0.99) 100%) !important;
-                    border: 2px solid #f1c40f !important;
-                    border-radius: 12px !important;
-                    padding: 20px !important;
-                    margin-bottom: 20px !important;
-                    box-shadow: 0 0 25px rgba(241, 196, 15, 0.3), inset 0 1px 0 0 rgba(255, 255, 255, 0.15) !important;
-                    text-align: center !important;
-                ">
-                    <span style="font-size: 0.9em; color: #8b949e !important; font-weight: bold; letter-spacing: 1px;">DOMINANT KEYWORD</span>
-                    <h2 style="color: #f1c40f !important; margin: 8px 0; font-weight: 900; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);">🔥 {top_theme} 테마 ({top_count}회 감지)</h2>
-                    <p style="color: #f0f6fc !important; font-size: 0.85em; margin: 0; font-weight: 500;">훈련 일지 상에서 가장 높은 쏠림 현상을 보인 시장 주도 대장 테마입니다.</p>
-                </div>
-                """, unsafe_allow_html=True)
-                
-            # --- 2) 키워드 출현 빈도수 가로 바차트 ---
-            st.markdown("##### 📊 주도 테마 출현 빈도수 순위")
-            df_counts = keyword_counts.reset_index()
-            df_counts.columns = ['Theme', 'Count']
-            
-            fig_trend = go.Figure(go.Bar(
-                x=df_counts['Count'],
-                y=df_counts['Theme'],
-                orientation='h',
-                marker=dict(
-                    color='rgba(88, 166, 255, 0.85)',
-                    line=dict(color='#58a6ff', width=1.5)
-                )
-            ))
-            
-            fig_trend.update_layout(
-                height=300,
-                template="plotly_dark",
-                plot_bgcolor='#131722',
-                paper_bgcolor='#0e1117',
-                margin=dict(l=10, r=10, t=10, b=10),
-                xaxis=dict(gridcolor='rgba(255, 255, 255, 0.04)', linecolor='rgba(255, 255, 255, 0.1)', tickformat=',d'),
-                yaxis=dict(gridcolor='rgba(255, 255, 255, 0.04)', linecolor='rgba(255, 255, 255, 0.1)', autorange="reversed")
-            )
-            
-            st.plotly_chart(fig_trend, use_container_width=True)
-            
-            # --- 3) 쉐도잉 일지 누적 캘린더 타임라인 ---
-            st.markdown("##### 📅 주식 쉐도잉 일일 누적 피드백")
-            
-            for idx_rec, row_rec in df_rec.iterrows():
-                rec_date_str = row_rec['date'].strftime('%Y-%m-%d')
-                expander_label = f"📅 [{rec_date_str}] {row_rec['keyword']} - {row_rec['stocks']}"
-                
-                with st.expander(expander_label):
-                    st.markdown(f"**🔥 주도 종목**: {row_rec['stocks']}")
-                    st.markdown(f"**💡 장 마감 분석 및 재료**:\n{row_rec['reason']}")
-                    
-                    # 개별 기록 삭제 버튼
-                    if st.button("🗑️ 해당 일지 삭제", key=f"del_rec_{idx_rec}", help="이날의 쉐도잉 기록을 삭제합니다."):
-                        # 날짜, 키워드, 종목명 매칭하여 필터 제거
-                        shadow_data["records"] = [
-                            x for x in shadow_data["records"] 
-                            if not (x["date"] == row_rec['date'].strftime('%Y-%m-%d') and 
-                                    x["keyword"] == row_rec['keyword'] and 
-                                    x["stocks"] == row_rec['stocks'])
-                        ]
-                        if save_shadowing_data(shadow_data):
-                            st.success("일지가 성공적으로 삭제되었습니다!")
-                            time.sleep(0.5)
-                            st.rerun()
-        else:
-            st.warning("누적된 쉐도잉 기록이 없습니다. '2. 주식 쉐도잉 일일 기록기' 탭에서 오늘의 첫 시장 일지를 작성하여 훈련을 개시하세요!")
-
-with tab_guide:
-    st.markdown("### 💡 종목분석기 사용법 및 알고리즘 완벽 가이드")
-    st.caption("이 대시보드는 기본 기술적 보조지표와 국내 최정상 전문가들의 매매 기법을 결합한 다차원 스코어링 알고리즘으로 작동합니다.")
-    
-    st.markdown("---")
-    
-    # 1. 종합 스코어링 시스템 배점표
-    st.markdown("#### 📊 1. 종합 스코어링 시스템 (100점 만점)")
-    st.info("각 종목을 스캔할 때 분석 항목별로 가산점을 부여하며, 최종 점수는 최대 100점으로 제한됩니다.")
-    
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        st.markdown("""
-        <div style="background-color: #1a1c24; padding: 18px; border-radius: 10px; border: 1px solid #30363d; min-height: 290px;">
-            <h5 style="color: #58a6ff; margin-top: 0; font-size: 1.1em;">📈 기본 추세 및 모멘텀 분석</h5>
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.95em; color: #adbac7;">
-                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;"><b>정배열 상승 추세 (가격 > 50 > 200)</b></td><td style="text-align: right; color: #2ecc71; font-weight: bold;">+40점</td></tr>
-                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">단기 이평선 상단 위치 (가격 > 50)</td><td style="text-align: right; color: #2ecc71; font-weight: bold;">+20점</td></tr>
-                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;"><b>안정적 상승 모멘텀 (RSI 45 ~ 65)</b></td><td style="text-align: right; color: #2ecc71; font-weight: bold;">+30점</td></tr>
-                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">RSI 저점 매수 유효 구간 (RSI < 45)</td><td style="text-align: right; color: #2ecc71; font-weight: bold;">+10점</td></tr>
-                <tr><td style="padding: 8px 0;"><b>거래량 폭발 (5일 avg vs 20일 avg 1.5배)</b></td><td style="text-align: right; color: #2ecc71; font-weight: bold;">+30점</td></tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
-        st.write("")
-        
-    with col_s2:
-        st.markdown("""
-        <div style="background-color: #1a1c24; padding: 18px; border-radius: 10px; border: 1px solid #30363d; min-height: 290px;">
-            <h5 style="color: #ff4b4b; margin-top: 0; font-size: 1.1em;">🚀 급등 전조 및 세력 수급 분석</h5>
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.95em; color: #adbac7;">
-                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">거래량 에너지 분출 (20일 avg 2.5배 폭증)</td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+20점</td></tr>
-                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">변동성 응축 (볼린저 밴드 수축)</td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+10점</td></tr>
-                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">3일 연속 상승 캔들 (양봉)</td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+15점</td></tr>
-                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;"><b>추세 내 눌림목(Pullback) 포착</b></td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+20점</td></tr>
-                <tr style="border-bottom: 1px solid #30363d;"><td style="padding: 8px 0;">세력 매집 흔적 포착 (OBV 우상향)</td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+15점</td></tr>
-                <tr><td style="padding: 8px 0;">자금 유입 강세 (MFI > 55)</td><td style="text-align: right; color: #ff4b4b; font-weight: bold;">+15점</td></tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
-        st.write("")
-
-    st.markdown("---")
-
-    # 2. 7대 전문가 기법 및 기술적 상세 조건
-    st.markdown("#### 🧐 2. 전문가 기법 및 기술적 상세 조건")
-    
-    with st.expander("🥣 주식단테 '밥그릇 패턴' & '256 기법' (종합점수 +25점 / +15점)"):
-        st.markdown("""
-        *   **밥그릇 3번 돌파 패턴 (+25점)**: 
-            *   1년 최고가 대비 30% 이상 폭락한 뒤, 최근 60일간 변동성 10% 내외로 횡보하여 바닥을 다진(밥그릇 2번) 종목이 112일선(장기이평선)을 강력하게 뚫고 올라서는 **추세 전환의 초입 맥점**을 포착합니다.
-        *   **256 스윙 기법 (+15점)**: 
-            *   20일선이 우상향하고 5일선이 20일선 위에 위치(정배열 초입)하며, 현재가가 60일선 위에 위치하여 단기 스윙에 가장 안정적이고 탄력적인 추세를 확인합니다.
-        """)
-        
-    with st.expander("📦 고쨱짹 '박스권 돌파 & 거봉' (종합점수 +30점)"):
-        st.markdown("""
-        *   **원리**: 최근 20거래일 동안의 최고점(박스 상단)을 몸통으로 돌파하면서, 당일 거래량이 20일 평균 거래량의 2.5배를 넘어서는 **'거봉(수급폭발)'**이 뜰 때 포착합니다. 
-        *   **특징**: 지루한 횡보 기간을 끝내고 매물대를 한 번에 소화하며 급등 랠리를 시작하는 강한 모멘텀 돌파 기법입니다.
-        """)
-
-    with st.expander("🐜 대왕개미 홍인기 '대장주 첫 장대양봉 & 끼' (종합점수 +35점)"):
-        st.markdown("""
-        *   **홍인기 D+0 매매법**: 당일 주가 상승률 7% 이상 + 거래량이 20일 평균 대비 300% 이상 폭증 + 60일 최고가를 돌파하는 **"당일 테마의 첫 대장 장대양봉"**을 포착합니다.
-        *   **종목의 끼 분석**: 최근 3개월(60거래일) 내 20% 이상 급등한 이력이나 상한가 도달 이력이 있는 '끼가 많은' 주도주를 골라내어 스윙 및 단타 승률을 극대화합니다.
-        """)
-
-    with st.expander("🚀 AP투자연구소 김용재 소장 '시가/고가 돌파' (종합점수 +30점)"):
-        st.markdown("""
-        *   **원리**: 당일 장중 시가 및 전일 고가를 모두 돌파(Breakout)하면서 거래량이 전일 대비 300% 이상 또는 20일 평균 대비 200% 이상 폭발적으로 들어올 때 감지합니다.
-        *   **특징**: 단기 이평선(5선과 20선)의 이격도가 3% 이내로 수렴한 수렴 구간에서 에너지가 위로 강력 분출되는 시점을 기가 막히게 잡아내어 장 초반 단타 매수 타이밍을 선사합니다.
-        """)
-
-    with st.expander("✨ 오로라 검색기 '낙폭과대 변곡점' (종합점수 +40점)"):
-        st.markdown("""
-        *   **원리**: 단기 급락으로 주가가 엔벨로프 하한선(20일 이동평균선 대비 -20%선) 이하 또는 인근 3% 이내까지 내려앉은 과매도 영역에서 **당일 첫 양봉**과 함께 거래량이 증가하거나 RSI 과매도권(35 이하)을 탈출하는 반등의 변곡점을 잡아냅니다.
-        *   **특징**: 악재나 투매로 과하게 밀린 우량주 및 주도 테마주가 기술적으로 강력한 반등을 줄 때, 바닥의 꼬리를 낚아채는 매수 급소 전략입니다.
-        """)
-
-    with st.expander("🏆 퓨처온 멘토 군단 (이슬/신태/준S) 매매법 (각 +25점)"):
-        st.markdown("""
-        *   **이슬 멘토 (골드라인 매매법)**: 황금 지수평균선인 EMA 33선 위에 캔들이 안착하고 골드라인이 우상향할 때 지지 매수 관점을 갖습니다.
-        *   **신태 멘토 (NS밴드 지지)**: 볼린저 밴드 하단 부근에 캔들 꼬리가 접촉하고, 당일 양봉을 그리며 20일 평균 거래량의 1.2배를 초과하는 수급이 들어올 때의 매수 맥점입니다.
-        *   **준S 멘토 (3파동 저점 상승)**: 20일 기준선 위에서 주가가 놀고 있으면서, 최근 60거래일 동안 3개의 유의미한 단기 저점들이 점점 높아지는 우상향 엘리어트 파동의 초입을 포착합니다.
-        """)
-
-    st.markdown("---")
-
-    # 4. 실시간 매매 판정 (Action) 가이드
-    st.markdown("#### 🎯 3. 실시간 매매 판정 (Action) 가이드")
     st.markdown("""
-    <div style="background-color: #1a1c24; padding: 18px; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 20px;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.95em; color: #adbac7; text-align: left;">
-            <thead>
-                <tr style="border-bottom: 2px solid #30363d; color: #58a6ff;">
-                    <th style="padding: 10px 5px; width: 22%;">판정 (Action)</th>
-                    <th style="padding: 10px 5px; width: 33%;">세부 설명 (Action Desc)</th>
-                    <th style="padding: 10px 5px; width: 45%;">기술적 판정 조건</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr style="border-bottom: 1px solid #22272e;">
-                    <td style="padding: 12px 5px;"><span style="background-color: rgba(46, 204, 113, 0.2); color: #2ecc71; padding: 3px 8px; border-radius: 5px; font-weight: bold;">🟢 강력 매수</span></td>
-                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">눌림목 포착 및 적극 매수 권장</td>
-                    <td style="padding: 12px 5px; color: #8b949e;">종합 점수 <b>70점 이상</b>이면서 <br>우상향 내 <b>눌림목(Pullback)</b> 조건에 부합할 때</td>
-                </tr>
-                <tr style="border-bottom: 1px solid #22272e;">
-                    <td style="padding: 12px 5px;"><span style="background-color: rgba(46, 204, 113, 0.15); color: #2ecc71; padding: 3px 8px; border-radius: 5px; font-weight: bold;">🟢 추격 매수 가능</span></td>
-                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">돌파 상승세 진입</td>
-                    <td style="padding: 12px 5px; color: #8b949e;">종합 점수 <b>70점 이상</b>일 때 (추격 매물 돌파 상승)</td>
-                </tr>
-                <tr style="border-bottom: 1px solid #22272e;">
-                    <td style="padding: 12px 5px;"><span style="background-color: rgba(46, 204, 113, 0.1); color: #82e0aa; padding: 3px 8px; border-radius: 5px; font-weight: bold;">🟢 분할 매수 유효</span></td>
-                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">점진적 진입 가능</td>
-                    <td style="padding: 12px 5px; color: #8b949e;">종합 점수 <b>50점 이상 70점 미만</b>일 때</td>
-                </tr>
-                <tr style="border-bottom: 1px solid #22272e;">
-                    <td style="padding: 12px 5px;"><span style="background-color: rgba(231, 76, 60, 0.2); color: #e74c3c; padding: 3px 8px; border-radius: 5px; font-weight: bold;">🔴 과매수 익절 권장</span></td>
-                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">분할 매도 및 수익 실현</td>
-                    <td style="padding: 12px 5px; color: #8b949e;">과열 신호인 <b>RSI 지표가 75 이상</b>으로 치솟았을 때</td>
-                </tr>
-                <tr style="border-bottom: 1px solid #22272e;">
-                    <td style="padding: 12px 5px;"><span style="background-color: rgba(231, 76, 60, 0.15); color: #e74c3c; padding: 3px 8px; border-radius: 5px; font-weight: bold;">🔴 추세 이탈 우려</span></td>
-                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">손절 및 비중 축소 권장</td>
-                    <td style="padding: 12px 5px; color: #8b949e;">종합 점수가 <b>40점 미만</b>이면서 <br>주가가 <b>20일 이평선(MA20) 아래</b>로 내려앉았을 때</td>
-                </tr>
-                <tr>
-                    <td style="padding: 12px 5px;"><span style="background-color: rgba(149, 165, 166, 0.2); color: #95a5a6; padding: 3px 8px; border-radius: 5px; font-weight: bold;">⚫ 관망</span></td>
-                    <td style="padding: 12px 5px; font-weight: bold; color: #fff;">대기 및 관망</td>
-                    <td style="padding: 12px 5px; color: #8b949e;">위의 강력한 매수/매도 조건 중 그 어느 것에도 해당하지 않을 때</td>
-                </tr>
-            </tbody>
-        </table>
+    <div style="
+        background: linear-gradient(135deg, rgba(88, 166, 255, 0.08) 0%, rgba(16, 20, 28, 0.95) 100%) !important;
+        border: 1px solid rgba(88, 166, 255, 0.2) !important;
+        border-radius: 10px !important;
+        padding: 15px !important;
+        margin-bottom: 15px !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+    ">
+        <span style="font-size: 0.9em; font-weight: bold; color: #58a6ff !important;">📢 실시간 자동화 안내</span>
+        <p style="margin: 6px 0 0 0; color: #adbac7 !important; font-size: 0.85em; line-height: 1.5;">
+            <b>상승률 15% 이상 & 거래대금 500억 이상</b> 터진 한국 시장(KRX)의 당일 핵심 주도주들을 실시간으로 파싱하고 
+            StockScanner 엔진으로 기술 점수와 전문가 매매 신호를 종합 분석하여 <b>백과사전 테마와 쉐도잉 일지에 자동으로 누적 병합</b>합니다. (기준 미달 시 300억으로 자동 완화 적용)
+        </p>
     </div>
     """, unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # 4. 장중 데이매매(단타) 실전 활용 가이드
-    st.markdown("#### 🚀 4. 장중 데이매매(단타) 실전 활용 가이드")
     
-    st.success("💡 데이매매(데이트레이딩)는 당일 매집된 거래대금(돈)이 쏠리는 '대장주'에서 짧게 방망이를 쥐고 대응해야 성공합니다.")
+    col_sync = st.columns([3, 1])
+    with col_sync[0]:
+        st.caption("※ 장 마감 후 또는 장중에 실행하시면 오늘 실시간으로 터진 뜨거운 주도주가 즉시 캘린더와 차트에 축적됩니다.")
+    with col_sync[1]:
+        if st.button("🔄 실시간 데이터 자동 반영", type="primary", use_container_width=True):
+            with st.spinner("실시간 한국 시장(KRX) 주도주 분석 및 백과사전 동기화 중..."):
+                success, msg = sync_realtime_shadowing_data(scanner)
+                if success:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+                    
+    # 서브 탭 구성
+    sub_dict_tab, sub_shadow_tab = st.tabs(["📖 테마 백과사전", "📝 주식 쉐도잉 일지"])
     
-    col_d1, col_d2 = st.columns(2)
-    with col_d1:
-        st.markdown("""
-        <div style="background-color: #1a1c24; padding: 18px; border-radius: 10px; border: 1px solid #30363d; min-height: 250px;">
-            <h5 style="color: #f1c40f; margin-top: 0; font-size: 1.1em;">⏰ 장중 시간대별 매매 시나리오</h5>
-            <ul style="color: #adbac7; padding-left: 20px; font-size: 0.95em; line-height: 1.6;">
-                <li><b>[09:00 ~ 09:30] 시가 돌파 타점</b>
-                    <br><small style="color: #8b949e;">- <b>'AP-김용재 소장 매매법'</b> 신호가 발생하고 거래량이 폭증하는 종목 공략 (목표가 2~4% 내외 청산)</small>
-                </li>
-                <li style="margin-top: 10px;"><b>[09:30 ~ 11:30] 시장 주도주 공략</b>
-                    <br><small style="color: #8b949e;">- <b>'홍인기 D+0'</b> 및 <b>'고쨱짹 박스돌파'</b> 신호가 뜬 대장주가 눌렸다가 지지받는 눌림목에서 분할 매수</small>
-                </li>
-                <li style="margin-top: 10px;"><b>[13:00 ~ 15:00] 낙폭과대 변곡점 공략</b>
-                    <br><small style="color: #8b949e;">- <b>'오로라 검색기'</b> 신호가 뜬 종목 중 지지받고 5분봉 첫 양봉을 그리는 종목 분할 매수</small>
-                </li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
+    # 2. 테마 백과사전 탭
+    with sub_dict_tab:
+        st.markdown("#### 📖 실시간 동기화 테마 리스트")
+        st.write("주도주 조건이 만족되어 백과사전에 자동으로 등록 및 업데이트된 테마들입니다.")
         
-    with col_d2:
-        st.markdown("""
-        <div style="background-color: #1a1c24; padding: 18px; border-radius: 10px; border: 1px solid #30363d; min-height: 250px;">
-            <h5 style="color: #e74c3c; margin-top: 0; font-size: 1.1em;">🚨 단타 매매 3대 필수 원칙</h5>
-            <ol style="color: #adbac7; padding-left: 20px; font-size: 0.95em; line-height: 1.7;">
-                <li><b>종합 스코어 70점 이상만 선택</b>
-                    <br><small style="color: #8b949e;">- 거래대금과 힘이 증명되지 않은 종목은 절대 단타로 진입하지 않습니다.</small>
-                </li>
-                <li style="margin-top: 10px;"><b>분봉 차트 및 호가창 병행</b>
-                    <br><small style="color: #8b949e;">- 본 분석기로 주도 종목을 먼저 발굴한 뒤, 진입/청산 타점은 1분봉/3분봉 차트와 매수-매도 잔량 호가창을 함께 보며 잡습니다.</small>
-                </li>
-                <li style="margin-top: 10px;"><b>기계적인 손절 대응</b>
-                    <br><small style="color: #8b949e;">- 예측이 틀려 분봉상의 당일 시가나 최근 지지선을 이탈하면 <b>-1.5% ~ -2% 내외</b>에서 즉시 손절을 집행합니다.</small>
-                </li>
-            </ol>
-        </div>
-        """, unsafe_allow_html=True)
-        st.write("")
+        for entry in shadow_data.get("dictionary", []):
+            st.markdown(f"""
+            <div style="
+                background-color: rgba(255,255,255,0.02) !important;
+                border: 1px solid rgba(255,255,255,0.05) !important;
+                border-radius: 8px !important;
+                padding: 12px !important;
+                margin-bottom: 12px !important;
+            ">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-weight:bold; font-size:1.05em; color:#f1c40f;">🏷️ {entry.get('theme')}</span>
+                    <span style="font-size:0.78em; color:#8b949e;">최종 업데이트: {entry.get('last_updated')}</span>
+                </div>
+                <p style="margin:5px 0; font-size:0.88em; color:#adbac7;">📈 <b>주도 종목:</b> <span style="color:#58a6ff; font-weight:bold;">{entry.get('stocks')}</span></p>
+                <p style="margin:5px 0 0 0; font-size:0.82em; color:#8b949e; line-height:1.4;">💡 <b>상세 원인:</b> {entry.get('reason')}</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+    # 3. 주식 쉐도잉 일지 탭
+    with sub_shadow_tab:
+        st.markdown("#### 📝 당일 핵심 주도 테마 쉐도잉 일지")
+        st.write("매일 퇴근 후 장 마감 데이터 중 가장 강했던 주도 섹터와 종목의 유입 이유를 기록하고 훈련하는 일지입니다.")
+        
+        # 쉐도잉 일지 신규 작성 Form
+        with st.expander("✍️ 오늘자 주도주 쉐도잉 일지 수동 작성", expanded=False):
+            with st.form("shadow_form", clear_on_submit=True):
+                s_date = st.date_input("날짜").strftime('%Y-%m-%d')
+                s_keyword = st.text_input("핵심 키워드 (예: 반도체, 초전도체)", placeholder="핵심 테마나 재료 입력")
+                s_stocks = st.text_input("주도 종목 (예: 한미반도체, 제주반도체)", placeholder="콤마(,)로 구분하여 입력")
+                s_reason = st.text_area("주도 이유 및 장중 흐름", placeholder="상승 이유, 뉴스, 특징 거래대금 흐름 등 기록")
+                
+                if st.form_submit_button("💾 일지 기록 저장"):
+                    if s_keyword and s_stocks:
+                        shadow_data["records"].insert(0, {
+                            "date": s_date,
+                            "keyword": s_keyword,
+                            "stocks": s_stocks,
+                            "reason": s_reason
+                        })
+                        if save_shadowing_data(shadow_data):
+                            st.success("오늘의 쉐도잉 일지가 성공적으로 기록되었습니다!")
+                            st.rerun()
+                    else:
+                        st.warning("키워드와 주도 종목는 필수 입력 항목입니다.")
+                        
+        # 기록된 일지 출력
+        for record in shadow_data.get("records", []):
+            st.markdown(f"""
+            <div style="
+                background-color: rgba(30, 34, 42, 0.4) !important;
+                border-left: 4px solid #58a6ff !important;
+                border: 1px solid rgba(255,255,255,0.05) !important;
+                border-radius: 0 8px 8px 0 !important;
+                padding: 15px !important;
+                margin-bottom: 15px !important;
+            ">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-weight:bold; font-size:1em; color:#58a6ff;">📅 {record.get('date')} | 핵심 키워드: {record.get('keyword')}</span>
+                </div>
+                <p style="margin:5px 0; font-size:0.88em; color:#adbac7;">🔥 <b>주요 급등주:</b> {record.get('stocks')}</p>
+                <p style="margin:5px 0 0 0; font-size:0.82em; color:#8b949e; line-height:1.4;">📝 <b>상세 흐름 & 뉴스:</b> {record.get('reason')}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
 # Footer
 st.divider()
