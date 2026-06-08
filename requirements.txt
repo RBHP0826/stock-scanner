@@ -10,3 +10,4 @@ ta
 bs4
 lxml
 pykrx
+setuptools<82.0.0
