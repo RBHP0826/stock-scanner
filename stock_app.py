@@ -446,10 +446,68 @@ def sync_realtime_shadowing_data(scanner):
     import time
     
     try:
-        # 1. KRX 전체 종목 조회
-        df_krx = fdr.StockListing('KRX')
-        if df_krx is None or df_krx.empty:
-            return False, "KRX 시장 정보를 실시간으로 가져올 수 없습니다."
+        # 1. KRX 전체 종목 조회 (실패 시 네이버 금융 실시간 급등 페이지 스크래핑으로 대체)
+        try:
+            df_krx = fdr.StockListing('KRX')
+            if df_krx is None or df_krx.empty:
+                raise ValueError("FinanceDataReader returned empty df")
+        except Exception as e:
+            print(f"FinanceDataReader 조회 실패. 네이버 금융 실시간 스크래핑 대체 시도: {e}")
+            import requests
+            from bs4 import BeautifulSoup
+            
+            def get_naver_rise(sosok):
+                url = f"https://finance.naver.com/sise/sise_rise.naver?sosok={sosok}"
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+                try:
+                    res = requests.get(url, headers=headers, timeout=10)
+                    soup = BeautifulSoup(res.text, 'html.parser')
+                    table = soup.find('table', class_='type_2')
+                    if not table:
+                        return []
+                    
+                    rows = table.find_all('tr')
+                    data = []
+                    for row in rows:
+                        tds = row.find_all('td')
+                        if len(tds) < 6:
+                            continue
+                        link = tds[1].find('a')
+                        if not link or 'href' not in link.attrs:
+                            continue
+                        
+                        name = tds[1].text.strip()
+                        code = link['href'].split('code=')[-1].strip()
+                        
+                        try:
+                            price = int(tds[2].text.strip().replace(',', ''))
+                            chg_text = tds[4].text.strip().replace('%', '').replace('+', '')
+                            chg = float(chg_text)
+                            volume = int(tds[5].text.strip().replace(',', ''))
+                            amount = price * volume
+                            data.append({
+                                'Code': code,
+                                'Symbol': code,
+                                'Name': name,
+                                'Chg': chg,
+                                'Amount': amount
+                            })
+                        except Exception:
+                            continue
+                    return data
+                except Exception as ex:
+                    print(f"네이버 sosok={sosok} 스크래핑 에러: {ex}")
+                    return []
+            
+            try:
+                kospi_data = get_naver_rise(0)
+                kosdaq_data = get_naver_rise(1)
+                all_data = kospi_data + kosdaq_data
+                if not all_data:
+                    return False, "KRX 및 네이버 금융 실시간 데이터 모두 가져올 수 없습니다."
+                df_krx = pd.DataFrame(all_data)
+            except Exception as ex:
+                return False, f"실시간 데이터 대체 스크래핑 에러: {ex}"
             
         # 필요한 컬럼 정제 및 존재 확인
         if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
