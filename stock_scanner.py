@@ -50,27 +50,47 @@ class StockScanner:
         except Exception as e:
             # 완전 무적의 최후 예비 수단 (pykrx 사용)
             print(f"FinanceDataReader 조회 실패. pykrx 예비 수단 가동: {e}")
-            from pykrx import stock
-            today = datetime.datetime.today().strftime("%Y%m%d")
-            # 주말/공휴일 방어 로직: 가장 최근 영업일 찾기
-            bdays = stock.get_business_days_of_month(today[:6])
-            if today not in [b.strftime("%Y%m%d") for b in bdays]:
-                today = bdays[-1].strftime("%Y%m%d") if bdays else today
-
             try:
-                kospi = stock.get_market_ticker_list(today, market="KOSPI")
+                from pykrx import stock
+                today = datetime.datetime.today().strftime("%Y%m%d")
+                
+                # 주말/공휴일 방어 로직: 요일별로 1차 조정한 뒤, 최대 7일 전까지 탐색
+                today_dt = datetime.datetime.today()
+                if today_dt.weekday() == 5:    # 토요일
+                    today_dt -= datetime.timedelta(days=1)
+                elif today_dt.weekday() == 6:  # 일요일
+                    today_dt -= datetime.timedelta(days=2)
+                
+                kospi = []
+                for i in range(7):
+                    check_date = (today_dt - datetime.timedelta(days=i)).strftime("%Y%m%d")
+                    try:
+                        kospi = stock.get_market_ticker_list(check_date, market="KOSPI")
+                        if kospi:
+                            today = check_date
+                            break
+                    except Exception:
+                        continue
+                
                 kosdaq = stock.get_market_ticker_list(today, market="KOSDAQ")
                 
                 # pykrx는 티커 리스트만 반환하므로 DataFrame 재구성
                 symbols = kospi + kosdaq
+                if not symbols:
+                    raise ValueError("pykrx에서 반환된 티커 리스트가 비어있습니다.")
+                
                 # 이름 매칭은 시간이 오래 걸릴 수 있지만 종목 스캔을 위해 필수적 (종목 수가 매우 많아 1~3초 소요)
                 names = [stock.get_market_ticker_name(s) for s in symbols]
                 
                 return pd.DataFrame({'Code': symbols, 'Symbol': symbols, 'Name': names})
             except Exception as ex:
                 print(f"pykrx마저 실패: {ex}")
-                # 최후의 수단 (초기 하드코딩된 삼성전자 등만 반환하여 앱이 터지는 것만막음)
-                return pd.DataFrame({'Code': ['005930', '000660', '035420', '035720', '005380'], 'Symbol': ['005930', '000660', '035420', '035720', '005380'], 'Name': ['삼성전자', 'SK하이닉스', 'NAVER', '카카오', '현대차']})
+                # 최후의 수단 (초기 하드코딩된 삼성전자 등만 반환하여 앱이 터지는 것만 막음)
+                return pd.DataFrame({
+                    'Code': ['005930', '000660', '035420', '035720', '005380'], 
+                    'Symbol': ['005930', '000660', '035420', '035720', '005380'], 
+                    'Name': ['삼성전자', 'SK하이닉스', 'NAVER', '카카오', '현대차']
+                })
 
     def get_us_symbols(self):
         """S&P 500 주요 종목 리스트를 가져옵니다."""
