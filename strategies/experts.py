@@ -1,4 +1,4 @@
-from ta.trend import SMAIndicator
+
 
 def check_accumulation_bar(df):
     """대량 거래를 동반한 매집봉(윗꼬리 캔들)을 분석합니다."""
@@ -54,9 +54,9 @@ def check_dante_bowl(df):
 
 def check_dante_256(df):
     """주식단테의 '256 기법'을 분석합니다."""
-    ma5 = SMAIndicator(df['Close'], window=5).sma_indicator()
+    ma5 = df['Close'].rolling(window=5).mean()
     ma20 = df['MA20']
-    ma60 = SMAIndicator(df['Close'], window=60).sma_indicator()
+    ma60 = df['Close'].rolling(window=60).mean()
     
     current_price = df['Close'].iloc[-1]
     

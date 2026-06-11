@@ -6,7 +6,6 @@ finance-datareader
 yfinance
 pyupbit
 numpy
-ta
 bs4
 lxml
 pykrx
