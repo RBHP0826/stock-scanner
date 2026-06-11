@@ -594,7 +594,7 @@ def plot_chart(df, symbol, name):
 # --- 공통 사이드바 설정 ---
 with st.sidebar:
     st.header("⚙️ 설정")
-    is_mobile = st.toggle("📱 모바일 최적화 모드 (Compact)", value=False, key="mobile_mode")
+    is_mobile = st.toggle("📱 모바일 카드 뷰 모드 (라씨 스타일)", value=True, key="mobile_mode")
     market_choice = st.radio("분석 시장 선택", ["한국 (KRX)", "미국 (US)", "암호화폐 (Upbit)"])
     
     # 시장 선택 변경 시 이전 결과 초기화
@@ -1206,13 +1206,135 @@ SCORE: {row['score']}
                 st.info(f"💡 **팁**: 아래 테이블에서 종목을 클릭하면 하단에 상세 차트와 전문가 매매법 분석 결과가 나타납니다. (총 {len(df_filtered)}개)")
                 
                 if st.session_state.get('mobile_mode', False):
+                    # 1. Render beautiful HTML cards for each stock (RASi style)
+                    st.markdown("### 📡 실시간 종목 매매 신호 (라씨 스타일)")
+                    
+                    cards_html = ""
+                    for idx, row in df_filtered.iterrows():
+                        # Determine action styling
+                        action = row.get('action', 'WAIT')
+                        action_desc = row.get('action_desc', '관망')
+                        
+                        if action == 'BUY':
+                            action_bg = 'rgba(255, 75, 75, 0.15)'
+                            action_text_color = '#ff4b4b'
+                            action_border = '#ff4b4b'
+                            action_shadow = 'rgba(255, 75, 75, 0.2)'
+                        elif action == 'SELL':
+                            action_bg = 'rgba(88, 166, 255, 0.15)'
+                            action_text_color = '#58a6ff'
+                            action_border = '#58a6ff'
+                            action_shadow = 'rgba(88, 166, 255, 0.2)'
+                        else:
+                            action_bg = 'rgba(139, 148, 158, 0.15)'
+                            action_text_color = '#8b949e'
+                            action_border = '#30363d'
+                            action_shadow = 'rgba(0, 0, 0, 0)'
+                            
+                        # Change rate sign & color
+                        change_rate = row.get('change_rate', 0.0)
+                        if change_rate > 0:
+                            change_color = '#ff4b4b'
+                            change_sign = '▲ '
+                        elif change_rate < 0:
+                            change_color = '#58a6ff'
+                            change_sign = '▼ '
+                        else:
+                            change_color = '#8b949e'
+                            change_sign = ''
+                            
+                        # Generate badges
+                        badges = []
+                        exp = row.get('experts', {})
+                        sm = row.get('smart_money', {})
+                        aurora = row.get('aurora', {})
+                        futureon = row.get('futureon', {})
+                        
+                        if exp.get('dante'): 
+                            if "밥그릇" in row.get('signals', ''): badges.append('<span style="background-color: rgba(155, 89, 182, 0.15); color: #bc8cff; border: 1px solid rgba(155, 89, 182, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🥣 밥그릇</span>')
+                            if "256" in row.get('signals', ''): badges.append('<span style="background-color: rgba(52, 73, 94, 0.15); color: #bdc3c7; border: 1px solid rgba(52, 73, 94, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🎯 256</span>')
+                        if exp.get('gozack'): badges.append('<span style="background-color: rgba(230, 126, 34, 0.15); color: #f39c12; border: 1px solid rgba(230, 126, 34, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">📦 고쨱</span>')
+                        if exp.get('hongingi'): badges.append('<span style="background-color: rgba(192, 41, 43, 0.15); color: #e74c3c; border: 1px solid rgba(192, 41, 43, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🐜 홍인기</span>')
+                        if exp.get('ap_inv'): badges.append('<span style="background-color: rgba(41, 128, 185, 0.15); color: #3498db; border: 1px solid rgba(41, 128, 185, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🚀 AP</span>')
+                        if exp.get('katch'): badges.append('<span style="background-color: rgba(26, 188, 156, 0.15); color: #1abc9c; border: 1px solid rgba(26, 188, 156, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🎯 캐치</span>')
+                        if exp.get('fvg'): badges.append('<span style="background-color: rgba(142, 68, 173, 0.15); color: #9b59b6; border: 1px solid rgba(142, 68, 173, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">💎 FVG</span>')
+                        if exp.get('turtle'): badges.append('<span style="background-color: rgba(39, 174, 96, 0.15); color: #2ecc71; border: 1px solid rgba(39, 174, 96, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🐢 터틀</span>')
+                        if aurora.get('signal'): badges.append('<span style="background-color: rgba(241, 196, 15, 0.15); color: #f1c40f; border: 1px solid rgba(241, 196, 15, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">✨ 오로라</span>')
+                        if futureon.get('isle') or futureon.get('shintae') or futureon.get('juns'): badges.append('<span style="background-color: rgba(230, 126, 34, 0.15); color: #e67e22; border: 1px solid rgba(230, 126, 34, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🏆 퓨처온</span>')
+                        if sm.get('accumulation'): badges.append('<span style="background-color: rgba(22, 160, 133, 0.15); color: #1abc9c; border: 1px solid rgba(22, 160, 133, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🐳 매집</span>')
+                        if sm.get('money_flow'): badges.append('<span style="background-color: rgba(243, 156, 18, 0.15); color: #f1c40f; border: 1px solid rgba(243, 156, 18, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">💵 유입</span>')
+                        
+                        badges_str = "".join(badges) if badges else '<span style="color: #8b949e; font-size: 0.75em;">기본 지표 분석</span>'
+                        
+                        # Signal truncation
+                        signals_list = [s.strip() for s in row.get('signals', '').split(',') if s.strip()]
+                        signals_truncated = ", ".join(signals_list[:2])
+                        if len(signals_list) > 2:
+                            signals_truncated += "..."
+                            
+                        cards_html += f"""
+<div style="
+    background: linear-gradient(135deg, #1f222e 0%, #151821 100%);
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+">
+    <!-- Left Side: Ticker, Badges, Signals -->
+    <div style="flex: 1; min-width: 0; padding-right: 12px; text-align: left;">
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <span style="font-size: 1.1em; font-weight: bold; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{row['Name']}</span>
+            <span style="font-size: 0.78em; color: #8b949e; background-color: #2b303b; padding: 1px 6px; border-radius: 4px; font-weight: bold;">{row['symbol']}</span>
+            <span style="font-size: 0.75em; color: #f1c40f; font-weight: bold; background-color: rgba(241, 196, 15, 0.1); padding: 1px 5px; border-radius: 4px;">{row['score']}점</span>
+        </div>
+        
+        <!-- Expert Pills -->
+        <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; margin-bottom: 6px;">
+            {badges_str}
+        </div>
+        
+        <!-- Signal Snippet -->
+        <div style="font-size: 0.78em; color: #8b949e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;">
+            💬 {signals_truncated}
+        </div>
+    </div>
+    
+    <!-- Right Side: Price, Change Rate, Action Badge -->
+    <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; min-width: 95px;">
+        <div style="font-size: 1.1em; font-weight: bold; color: #ffffff;">{row['current_price']:,.0f}원</div>
+        <div style="font-size: 0.85em; font-weight: bold; color: {change_color}; margin-top: 2px; margin-bottom: 6px;">{change_sign}{change_rate:.1f}%</div>
+        
+        <!-- Action Badge -->
+        <div style="
+            background-color: {action_bg}; 
+            color: {action_text_color}; 
+            padding: 3px 8px; 
+            border-radius: 6px; 
+            font-size: 0.78em; 
+            font-weight: bold; 
+            text-align: center;
+            border: 1px solid {action_border};
+            box-shadow: 0 1px 4px {action_shadow};
+        ">
+            {action_desc}
+        </div>
+    </div>
+</div>
+"""
+                    st.markdown(cards_html, unsafe_allow_html=True)
+                    st.write("")
+                    
                     options_list = []
                     for idx, row in df_filtered.iterrows():
                         action_icon = '🟢' if row['action'] == 'BUY' else ('🔴' if row['action'] == 'SELL' else '⚫')
                         options_list.append(f"{action_icon} {row['Name']} ({row['symbol']}) | 등락률: {row['change_rate']:.1f}% | 점수: {row['score']}점")
                     
                     sb_key = f"sb_{current_market}_{selected_strategy_name}_{len(df_filtered)}"
-                    selected_opt = st.selectbox("📱 분석할 종목 선택", options_list, key=sb_key)
+                    selected_opt = st.selectbox("📱 상세 차트 및 타점 분석을 보려면 아래에서 선택하세요", options_list, key=sb_key)
                     
                     if selected_opt:
                         selected_idx = options_list.index(selected_opt)
@@ -1530,13 +1652,85 @@ with tab_portfolio:
                 # 데이터 그리드 (다중 선택 활성화)
                 st.write("**현재 현황** (아래 표에서 종목을 선택하여 복수 삭제가 가능합니다.)")
                 if st.session_state.get('mobile_mode', False):
+                    # Render portfolio stocks as beautiful cards (RASi style)
+                    st.markdown("##### 💼 보유 종목 현황")
+                    
+                    cards_html = ""
+                    for idx, row in df_m.iterrows():
+                        action = row.get('action', 'WAIT')
+                        action_desc = row.get('action_desc', '관망')
+                        
+                        if action == 'BUY':
+                            action_bg = 'rgba(255, 75, 75, 0.15)'
+                            action_text_color = '#ff4b4b'
+                            action_border = '#ff4b4b'
+                            action_shadow = 'rgba(255, 75, 75, 0.2)'
+                        elif action == 'SELL':
+                            action_bg = 'rgba(88, 166, 255, 0.15)'
+                            action_text_color = '#58a6ff'
+                            action_border = '#58a6ff'
+                            action_shadow = 'rgba(88, 166, 255, 0.2)'
+                        else:
+                            action_bg = 'rgba(139, 148, 158, 0.15)'
+                            action_text_color = '#8b949e'
+                            action_border = '#30363d'
+                            action_shadow = 'rgba(0, 0, 0, 0)'
+                            
+                        # Format Price & RSI
+                        price_val = row.get('current_price', 0)
+                        price_str = f"{price_val:,.0f}원" if price_val > 0 else "데이터 없음"
+                        rsi_val = row.get('rsi', 0.0)
+                        rsi_str = f"RSI: {rsi_val:.1f}" if rsi_val > 0 else "RSI: N/A"
+                        
+                        cards_html += f"""
+<div style="
+    background: linear-gradient(135deg, #1f222e 0%, #151821 100%);
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+">
+    <div style="text-align: left; flex: 1;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 1.1em; font-weight: bold; color: #ffffff;">{row['name']}</span>
+            <span style="font-size: 0.78em; color: #8b949e; background-color: #2b303b; padding: 1px 6px; border-radius: 4px; font-weight: bold;">{row['symbol']}</span>
+        </div>
+        <div style="font-size: 0.8em; color: #8b949e; margin-top: 6px;">
+            {rsi_str} | 점수: {row.get('score', 0)}점
+        </div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: flex-end; min-width: 95px;">
+        <div style="font-size: 1.1em; font-weight: bold; color: #ffffff;">{price_str}</div>
+        <div style="
+            background-color: {action_bg}; 
+            color: {action_text_color}; 
+            padding: 3px 8px; 
+            border-radius: 6px; 
+            font-size: 0.78em; 
+            font-weight: bold; 
+            text-align: center;
+            border: 1px solid {action_border};
+            margin-top: 6px;
+        ">
+            {action_desc}
+        </div>
+    </div>
+</div>
+"""
+                    st.markdown(cards_html, unsafe_allow_html=True)
+                    st.write("")
+                    
                     options_list = []
                     for idx, row in df_m.iterrows():
                         action_icon = '🟢' if row['action'] == 'BUY' else ('🔴' if row['action'] == 'SELL' else '⚫')
                         options_list.append(f"{action_icon} {row['name']} ({row['symbol']}) | RSI: {row['rsi']:.1f}")
                     
                     ms_key = f"ms_ptr_{m_key}_{len(df_m)}"
-                    selected_opts = st.multiselect("📱 관리할 종목 선택", options_list, key=ms_key)
+                    selected_opts = st.multiselect("📱 관리(선택/삭제)할 종목 선택", options_list, key=ms_key)
                     
                     selected_idx = [options_list.index(opt) for opt in selected_opts]
                     class FakeSelectionEvent:
