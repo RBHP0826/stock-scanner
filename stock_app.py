@@ -482,15 +482,32 @@ scanner = get_scanner()
 # @st.cache_data(ttl=3600)  # 코드 변경 후 데이터 호환성을 위해 일시적으로 캐싱 비활성화
 def run_scan(market_choice, scan_limit):
     if market_choice == "한국 (KRX)":
-        symbols_df = scanner.get_krx_symbols().head(scan_limit)
+        symbols_df = scanner.get_krx_symbols()
+        if 'Amount' in symbols_df.columns:
+            symbols_df['Amount'] = pd.to_numeric(symbols_df['Amount'], errors='coerce').fillna(0)
+            symbols_df = symbols_df.sort_values(by='Amount', ascending=False)
+        elif 'Marcap' in symbols_df.columns:
+            symbols_df['Marcap'] = pd.to_numeric(symbols_df['Marcap'], errors='coerce').fillna(0)
+            symbols_df = symbols_df.sort_values(by='Marcap', ascending=False)
+        symbols_df = symbols_df.head(scan_limit)
         market_code = 'KR'
         symbol_col = 'Code' if 'Code' in symbols_df.columns else 'Symbol'
     elif market_choice == "미국 (US)":
-        symbols_df = scanner.get_us_symbols().head(scan_limit)
+        symbols_df = scanner.get_us_symbols()
+        major_us = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AVGO', 'LLY', 'JPM', 'UNH', 'XOM', 'V', 'PG', 'MA']
+        if 'Symbol' in symbols_df.columns:
+            symbols_df['is_major'] = symbols_df['Symbol'].apply(lambda x: major_us.index(x) if x in major_us else 999)
+            symbols_df = symbols_df.sort_values(by='is_major').drop(columns=['is_major'])
+        symbols_df = symbols_df.head(scan_limit)
         market_code = 'US'
         symbol_col = 'Symbol'
     else: # 암호화폐 (Upbit)
-        symbols_df = scanner.get_coin_symbols().head(scan_limit)
+        symbols_df = scanner.get_coin_symbols()
+        major_coins = ['KRW-BTC', 'KRW-ETH', 'KRW-XRP', 'KRW-SOL', 'KRW-ADA', 'KRW-DOGE', 'KRW-SHIB', 'KRW-DOT', 'KRW-AVAX', 'KRW-LINK', 'KRW-TRX', 'KRW-ETC', 'KRW-APT', 'KRW-SUI']
+        if 'Symbol' in symbols_df.columns:
+            symbols_df['is_major'] = symbols_df['Symbol'].apply(lambda x: major_coins.index(x) if x in major_coins else 999)
+            symbols_df = symbols_df.sort_values(by='is_major').drop(columns=['is_major'])
+        symbols_df = symbols_df.head(scan_limit)
         market_code = 'COIN'
         symbol_col = 'Symbol'
 
@@ -2270,153 +2287,262 @@ with tab_dict:
                     st.session_state.cal_year += 1
                 st.rerun()
                 
-        cols_day = st.columns(5)
-        weekdays_5 = ["월", "화", "수", "목", "금"]
-        for idx, w_name in enumerate(weekdays_5):
-            cols_day[idx].markdown(f"<div class='weekday-header' style='color: #ffffff; text-shadow: none;'>{w_name}</div>", unsafe_allow_html=True)
+        # 모바일 최적화 모드(Compact)가 켜져 있는 경우
+        if st.session_state.get("mobile_mode", False):
+            st.info("📱 모바일 모드: 화면 폭에 최적화된 세로형 아코디언 리스트로 캘린더가 표시됩니다.")
             
-        cal = calendar.Calendar(firstweekday=6)
-        weeks = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
-        
-        def get_pastel_style(theme_name):
-            colors = [
-                ("rgba(56, 139, 253, 0.25)", "#58a6ff"),
-                ("rgba(46, 160, 67, 0.25)", "#57ab5a"),
-                ("rgba(248, 81, 73, 0.25)", "#ff7b72"),
-                ("rgba(210, 153, 34, 0.25)", "#d29922"),
-                ("rgba(187, 128, 250, 0.25)", "#bc8cff")
-            ]
-            import hashlib
-            idx = int(hashlib.md5(theme_name.encode('utf-8')).hexdigest(), 16) % len(colors)
-            return colors[idx]
-
-        for w_idx, week in enumerate(weeks):
-            mon_val = week[1]
-            tue_val = week[2]
-            wed_val = week[3]
-            thu_val = week[4]
-            fri_val = week[5]
+            cal = calendar.Calendar(firstweekday=6)
+            weeks = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
             
-            day_vals = [mon_val, tue_val, wed_val, thu_val, fri_val]
-            cols = st.columns(5)
+            def get_pastel_style(theme_name):
+                colors = [
+                    ("rgba(56, 139, 253, 0.25)", "#58a6ff"),
+                    ("rgba(46, 160, 67, 0.25)", "#57ab5a"),
+                    ("rgba(248, 81, 73, 0.25)", "#ff7b72"),
+                    ("rgba(210, 153, 34, 0.25)", "#d29922"),
+                    ("rgba(187, 128, 250, 0.25)", "#bc8cff")
+                ]
+                import hashlib
+                idx = int(hashlib.md5(theme_name.encode('utf-8')).hexdigest(), 16) % len(colors)
+                return colors[idx]
             
-            for idx, day in enumerate(day_vals):
-                if day == 0:
-                    cols[idx].write("")
-                else:
-                    date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{day:02d}"
-                    has_data = date_str in day_data
+            # 주차별로 그룹화하여 표시
+            for w_idx, week in enumerate(weeks):
+                valid_days = [d for d in week[1:6] if d > 0] # 월~금
+                if not valid_days:
+                    continue
                     
-                    table_rows_html = ""
-                    if has_data:
-                        day_records = day_data[date_str].get("records", [])
+                start_day = valid_days[0]
+                end_day = valid_days[-1]
+                week_title = f"📅 {w_idx+1}주차 ({st.session_state.cal_month:02d}월 {start_day:02d}일 ~ {end_day:02d}일)"
+                
+                # 해당 주차에 데이터가 1개라도 있는 날짜가 있는지 체크
+                has_any_data = False
+                for d in valid_days:
+                    d_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{d:02d}"
+                    if d_str in day_data:
+                        has_any_data = True
+                        break
                         
-                        disp_items = []
-                        if day_records and "details" in day_records[0] and day_records[0]["details"]:
-                            rec = day_records[0]
-                            details = rec["details"]
-                            
-                            industry_groups = {}
-                            for d in details:
-                                ind = d.get("industry", "주도업종")
-                                if ind not in industry_groups:
-                                    industry_groups[ind] = []
-                                industry_groups[ind].append(d)
-                                
-                            for ind_name, stocks_in_ind in industry_groups.items():
-                                avg_rate = round(sum(s.get("rate", 0) for s in stocks_in_ind) / len(stocks_in_ind), 2)
-                                total_amt = int(sum(s.get("amount", 0) for s in stocks_in_ind))
-                                disp_items.append((ind_name, avg_rate, total_amt))
-                                
-                            disp_items = sorted(disp_items, key=lambda x: x[2], reverse=True)
-                        else:
-                            day_themes = day_data[date_str].get("themes", [])
-                            for t in day_themes:
-                                disp_items.append((t.get("theme"), t.get("average_rate", 10.0), t.get("cumulative_amount", 500)))
-                            for r in day_records:
-                                keywords = [k.strip() for k in r.get("keyword", "").split(",") if k.strip()]
-                                for k in keywords:
-                                    if k not in [item[0] for item in disp_items]:
-                                        disp_items.append((k, r.get("average_rate", 10.0), r.get("cumulative_amount", 500)))
+                is_expanded = has_any_data
+                
+                with st.expander(week_title, expanded=is_expanded):
+                    for d in valid_days:
+                        date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{d:02d}"
+                        has_data = date_str in day_data
+                        day_of_week = ["월", "화", "수", "목", "금"][week.index(d) - 1]
+                        
+                        col_date, col_btn = st.columns([3, 1])
+                        
+                        with col_date:
+                            selected_marker = " 🎯" if st.session_state.selected_date == date_str else ""
+                            st.markdown(f"**{d}일 ({day_of_week})**" + (" 🟢" if has_data else "") + selected_marker)
+                            if has_data:
+                                day_records = day_data[date_str].get("records", [])
+                                disp_items = []
+                                if day_records and "details" in day_records[0] and day_records[0]["details"]:
+                                    rec = day_records[0]
+                                    details = rec["details"]
+                                    
+                                    industry_groups = {}
+                                    for d_item in details:
+                                        ind = d_item.get("industry", "주도업종")
+                                        if ind not in industry_groups:
+                                            industry_groups[ind] = []
+                                        industry_groups[ind].append(d_item)
                                         
-                        for item_theme, rate, amt in disp_items[:3]:
-                            bg_color, text_color = get_pastel_style(item_theme)
-                            row_html = f"""
-                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                <td style="padding: 2px 0;">
+                                    for ind_name, stocks_in_ind in industry_groups.items():
+                                        avg_rate = round(sum(s.get("rate", 0) for s in stocks_in_ind) / len(stocks_in_ind), 2)
+                                        total_amt = int(sum(s.get("amount", 0) for s in stocks_in_ind))
+                                        disp_items.append((ind_name, avg_rate, total_amt))
+                                        
+                                    disp_items = sorted(disp_items, key=lambda x: x[2], reverse=True)
+                                else:
+                                    day_themes = day_data[date_str].get("themes", [])
+                                    for t in day_themes:
+                                        disp_items.append((t.get("theme"), t.get("average_rate", 10.0), t.get("cumulative_amount", 500)))
+                                        
+                                # 칩 형태로 테마 노출
+                                badges_html = ""
+                                for item_theme, rate, amt in disp_items[:3]:
+                                    bg_color, text_color = get_pastel_style(item_theme)
+                                    badges_html += f"""
                                     <span style="
                                         background-color: {bg_color};
                                         color: {text_color};
-                                        padding: 1px 4px;
+                                        padding: 2px 6px;
                                         border-radius: 4px;
                                         font-weight: bold;
-                                        font-size: 0.82em;
+                                        font-size: 0.78em;
                                         display: inline-block;
-                                        max-width: 70px;
-                                        overflow: hidden;
-                                        text-overflow: ellipsis;
-                                        white-space: nowrap;
-                                    " title="{item_theme}">{item_theme}</span>
-                                </td>
-                                <td style="text-align: right; color: #ff7b72; font-weight: bold; font-size: 0.85em; padding: 2px 0;">{rate}%</td>
-                                <td style="text-align: right; color: #58a6ff; font-size: 0.8em; padding: 2px 2px 2px 0;">{amt}억</td>
-                            </tr>
-                            """
-                            table_rows_html += row_html.replace("\n", " ")
-                            
-                    is_selected = st.session_state.selected_date == date_str
-                    card_border = "2px solid #58a6ff" if is_selected else ("1px solid #38edf9" if has_data else "1px solid rgba(255,255,255,0.15)")
-                    card_bg = "rgba(88, 166, 255, 0.08)" if is_selected else ("rgba(255,255,255,0.04)" if has_data else "transparent")
-                    
-                    card_html = f"""
-                    <div style="
-                        background-color: {card_bg};
-                        border: {card_border};
-                        border-radius: 8px;
-                        padding: 8px 6px;
-                        height: 140px;
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: flex-start;
-                        box-sizing: border-box;
-                        margin-bottom: 4px;
-                        position: relative;
-                    ">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px; margin-bottom: 4px;">
-                            <span style="font-weight: bold; font-size: 1.05em; color: {'#58a6ff' if is_selected else '#ffffff'};">{day}</span>
-                            {"<span style='color: #57ab5a; font-size: 0.8em; font-weight: bold;'>●</span>" if has_data else ""}
-                        </div>
-                        <div style="flex-grow: 1; overflow: hidden; width: 100%;">
-                    """
-                    
-                    if has_data and table_rows_html:
-                        card_html += f"""
-                            <table style="width: 100%; font-size: 0.75em; border-collapse: collapse; line-height: 1.2;">
-                                <tbody>
-                                    {table_rows_html}
-                                </tbody>
-                            </table>
-                        """
+                                        margin-right: 4px;
+                                        margin-bottom: 4px;
+                                    ">{item_theme} (+{rate}%)</span>
+                                    """
+                                if badges_html:
+                                    st.markdown(badges_html, unsafe_allow_html=True)
+                            else:
+                                st.caption("기록 없음")
+                        
+                        with col_btn:
+                            if has_data:
+                                btn_type = "primary" if st.session_state.selected_date == date_str else "secondary"
+                                if st.button("🔎 분석", key=f"cal_btn_m_{date_str}_{w_idx}", use_container_width=True, type=btn_type):
+                                    st.session_state.selected_date = date_str
+                                    st.session_state.shadow_step_choice = step_options[0]
+                                    st.rerun()
+                            else:
+                                st.write("")
+                                
+                        st.markdown("<div style='margin: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05);'></div>", unsafe_allow_html=True)
+        else:
+            cols_day = st.columns(5)
+            weekdays_5 = ["월", "화", "수", "목", "금"]
+            for idx, w_name in enumerate(weekdays_5):
+                cols_day[idx].markdown(f"<div class='weekday-header' style='color: #ffffff; text-shadow: none;'>{w_name}</div>", unsafe_allow_html=True)
+                
+            cal = calendar.Calendar(firstweekday=6)
+            weeks = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
+            
+            def get_pastel_style(theme_name):
+                colors = [
+                    ("rgba(56, 139, 253, 0.25)", "#58a6ff"),
+                    ("rgba(46, 160, 67, 0.25)", "#57ab5a"),
+                    ("rgba(248, 81, 73, 0.25)", "#ff7b72"),
+                    ("rgba(210, 153, 34, 0.25)", "#d29922"),
+                    ("rgba(187, 128, 250, 0.25)", "#bc8cff")
+                ]
+                import hashlib
+                idx = int(hashlib.md5(theme_name.encode('utf-8')).hexdigest(), 16) % len(colors)
+                return colors[idx]
+
+            for w_idx, week in enumerate(weeks):
+                mon_val = week[1]
+                tue_val = week[2]
+                wed_val = week[3]
+                thu_val = week[4]
+                fri_val = week[5]
+                
+                day_vals = [mon_val, tue_val, wed_val, thu_val, fri_val]
+                cols = st.columns(5)
+                
+                for idx, day in enumerate(day_vals):
+                    if day == 0:
+                        cols[idx].write("")
                     else:
-                        card_html += """
-                            <div style="display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255,255,255,0.3); font-size: 0.8em;">
-                                기록 없음
+                        date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{day:02d}"
+                        has_data = date_str in day_data
+                        
+                        table_rows_html = ""
+                        if has_data:
+                            day_records = day_data[date_str].get("records", [])
+                            
+                            disp_items = []
+                            if day_records and "details" in day_records[0] and day_records[0]["details"]:
+                                rec = day_records[0]
+                                details = rec["details"]
+                                
+                                industry_groups = {}
+                                for d in details:
+                                    ind = d.get("industry", "주도업종")
+                                    if ind not in industry_groups:
+                                        industry_groups[ind] = []
+                                    industry_groups[ind].append(d)
+                                    
+                                for ind_name, stocks_in_ind in industry_groups.items():
+                                    avg_rate = round(sum(s.get("rate", 0) for s in stocks_in_ind) / len(stocks_in_ind), 2)
+                                    total_amt = int(sum(s.get("amount", 0) for s in stocks_in_ind))
+                                    disp_items.append((ind_name, avg_rate, total_amt))
+                                    
+                                disp_items = sorted(disp_items, key=lambda x: x[2], reverse=True)
+                            else:
+                                day_themes = day_data[date_str].get("themes", [])
+                                for t in day_themes:
+                                    disp_items.append((t.get("theme"), t.get("average_rate", 10.0), t.get("cumulative_amount", 500)))
+                                for r in day_records:
+                                    keywords = [k.strip() for k in r.get("keyword", "").split(",") if k.strip()]
+                                    for k in keywords:
+                                        if k not in [item[0] for item in disp_items]:
+                                            disp_items.append((k, r.get("average_rate", 10.0), r.get("cumulative_amount", 500)))
+                                            
+                            for item_theme, rate, amt in disp_items[:3]:
+                                bg_color, text_color = get_pastel_style(item_theme)
+                                row_html = f"""
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="padding: 2px 0;">
+                                        <span style="
+                                            background-color: {bg_color};
+                                            color: {text_color};
+                                            padding: 1px 4px;
+                                            border-radius: 4px;
+                                            font-weight: bold;
+                                            font-size: 0.82em;
+                                            display: inline-block;
+                                            max-width: 70px;
+                                            overflow: hidden;
+                                            text-overflow: ellipsis;
+                                            white-space: nowrap;
+                                        " title="{item_theme}">{item_theme}</span>
+                                    </td>
+                                    <td style="text-align: right; color: #ff7b72; font-weight: bold; font-size: 0.85em; padding: 2px 0;">{rate}%</td>
+                                    <td style="text-align: right; color: #58a6ff; font-size: 0.8em; padding: 2px 2px 2px 0;">{amt}억</td>
+                                </tr>
+                                """
+                                table_rows_html += row_html.replace("\n", " ")
+                                
+                        is_selected = st.session_state.selected_date == date_str
+                        card_border = "2px solid #58a6ff" if is_selected else ("1px solid #38edf9" if has_data else "1px solid rgba(255,255,255,0.15)")
+                        card_bg = "rgba(88, 166, 255, 0.08)" if is_selected else ("rgba(255,255,255,0.04)" if has_data else "transparent")
+                        
+                        card_html = f"""
+                        <div style="
+                            background-color: {card_bg};
+                            border: {card_border};
+                            border-radius: 8px;
+                            padding: 8px 6px;
+                            height: 140px;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: flex-start;
+                            box-sizing: border-box;
+                            margin-bottom: 4px;
+                            position: relative;
+                        ">
+                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px; margin-bottom: 4px;">
+                                <span style="font-weight: bold; font-size: 1.05em; color: {'#58a6ff' if is_selected else '#ffffff'};">{day}</span>
+                                {"<span style='color: #57ab5a; font-size: 0.8em; font-weight: bold;'>●</span>" if has_data else ""}
                             </div>
+                            <div style="flex-grow: 1; overflow: hidden; width: 100%;">
                         """
-                    card_html += """
+                        
+                        if has_data and table_rows_html:
+                            card_html += f"""
+                                <table style="width: 100%; font-size: 0.75em; border-collapse: collapse; line-height: 1.2;">
+                                    <tbody>
+                                        {table_rows_html}
+                                    </tbody>
+                                </table>
+                            """
+                        else:
+                            card_html += """
+                                <div style="display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255,255,255,0.3); font-size: 0.8em;">
+                                    기록 없음
+                                </div>
+                            """
+                        card_html += """
+                            </div>
                         </div>
-                    </div>
-                    """
-                    
-                    flat_card_html = card_html.replace("\n", " ").strip()
-                    cols[idx].markdown(flat_card_html, unsafe_allow_html=True)
-                    
-                    btn_label = f"🔎 {day}일 분석"
-                    btn_type = "primary" if is_selected else "secondary"
-                    if cols[idx].button(btn_label, key=f"cal_btn_{date_str}_{w_idx}_{idx}", use_container_width=True, type=btn_type):
-                        st.session_state.selected_date = date_str
-                        st.session_state.shadow_step_choice = step_options[0]
-                        st.rerun()
+                        """
+                        
+                        flat_card_html = card_html.replace("\n", " ").strip()
+                        cols[idx].markdown(flat_card_html, unsafe_allow_html=True)
+                        
+                        btn_label = f"🔎 {day}일 분석"
+                        btn_type = "primary" if is_selected else "secondary"
+                        if cols[idx].button(btn_label, key=f"cal_btn_{date_str}_{w_idx}_{idx}", use_container_width=True, type=btn_type):
+                            st.session_state.selected_date = date_str
+                            st.session_state.shadow_step_choice = step_options[0]
+                            st.rerun()
 
         if st.session_state.selected_date:
             sel_date = st.session_state.selected_date
