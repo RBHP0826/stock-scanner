@@ -139,13 +139,17 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
 
 def load_config():
+    default_cfg = {"telegram_token": "", "telegram_chat_id": "", "auto_send": False, "custom_url": "", "app_password": "admin1234"}
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
+                cfg = json.load(f)
+                for k, v in default_cfg.items():
+                    if k not in cfg: cfg[k] = v
+                return cfg
         except:
-            return {"telegram_token": "", "telegram_chat_id": "", "auto_send": False, "custom_url": ""}
-    return {"telegram_token": "", "telegram_chat_id": "", "auto_send": False, "custom_url": ""}
+            return default_cfg
+    return default_cfg
 
 def save_config(config):
     with open(CONFIG_FILE, "w") as f:
@@ -408,6 +412,27 @@ def save_portfolio(portfolio):
         json.dump(portfolio, f)
 
 # --- App Logic ---
+config = load_config()
+
+# --- Authentication (비밀번호 잠금) ---
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
+
+if not st.session_state['authenticated']:
+    st.markdown("<h2 style='text-align: center; color: #ff4b4b; margin-top: 50px;'>🔒 안티그래비티 대시보드 로그인</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #8b949e;'>허가된 사용자만 접근할 수 있는 프라이빗 시스템입니다.</p>", unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        pwd_input = st.text_input("초대코드 (비밀번호) 입력:", type="password")
+        if st.button("접속하기", use_container_width=True, type="primary"):
+            if pwd_input == config.get("app_password", "admin1234"):
+                st.session_state['authenticated'] = True
+                st.rerun()
+            else:
+                st.error("비밀번호가 일치하지 않습니다.")
+    st.stop() # 인증 전에는 아래 로직 실행 안 함
+
 st.title("🚀 Premium Stock Selection & Monitoring")
 
 # @st.cache_resource # 캐싱된 이전 버전의 StockScanner 객체로 인해 find_symbol_by_name 속성 오류가 발생할 수 있습니다.
@@ -518,6 +543,9 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("🌐 외부 접속 환경 설정")
     custom_url_input = st.text_input("커스텀 URL (선택, ngrok 등)", value=config.get("custom_url", ""), help="외부망에서 접속할 때 할당받은 주소(예: https://1234.ngrok.io)를 입력하면 해당 주소로 QR코드가 생성됩니다. 비워두면 현재 PC의 내부망 IP로 자동 생성됩니다.")
+    st.markdown("---")
+    st.subheader("🔒 보안 설정")
+    app_pwd_input = st.text_input("대시보드 접속 비밀번호", value=config.get("app_password", "admin1234"), type="password", help="앱에 접속할 때 필요한 비밀번호입니다. 기본값은 admin1234 입니다.")
     
     col_cfg1, col_cfg2 = st.columns(2)
     with col_cfg1:
@@ -526,6 +554,7 @@ with st.sidebar:
             config["telegram_chat_id"] = tg_chat_id
             config["auto_send"] = auto_send
             config["custom_url"] = custom_url_input
+            config["app_password"] = app_pwd_input
             save_config(config)
             st.success("설정이 저장되었습니다!")
     
