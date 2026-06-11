@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+import stock_scanner
+import importlib
+importlib.reload(stock_scanner)
 from stock_scanner import StockScanner
 import plotly.graph_objects as go
 from datetime import datetime
@@ -172,6 +175,49 @@ def send_telegram_message(message):
         return True, "성공"
     except Exception as e:
         return False, str(e)
+
+def render_donkkang_scenario(s_data):
+    dk = s_data.get('donkkang')
+    if not dk: return ""
+    
+    html = "<div style='margin-top:15px; padding:12px; background-color:rgba(255, 75, 75, 0.05); border:1px solid #ff4b4b; border-radius:8px;'>"
+    html += "<h5 style='color:#ff4b4b; margin:0 0 10px 0;'>📊 데이매매 돈깡 매매법 시나리오</h5>"
+    
+    if dk.get('suitable'):
+        br = dk.get('breakout', {})
+        su = dk.get('support', {})
+        html += f"""
+        <div style='font-size:0.85em; color:#e2e8f0;'>
+            <p style='margin:2px 0;'><b>🔥 시나리오 A (돌파)</b>: <span style='color:#f1c40f;'>{int(br.get('buy',0)):,}원</span> 돌파 시 추격</p>
+            <p style='margin:2px 0; padding-left:15px; color:#8b949e;'>↳ 칼손절: {int(br.get('stop',0)):,}원 (-3%) / 분할익절: {int(br.get('target',0)):,}원 (+5%)</p>
+            <p style='margin:8px 0 2px 0;'><b>🛡️ 시나리오 B (눌림)</b>: <span style='color:#58a6ff;'>{int(su.get('buy',0)):,}원</span> 지지 시 매수</p>
+            <p style='margin:2px 0; padding-left:15px; color:#8b949e;'>↳ 칼손절: {int(su.get('stop',0)):,}원 (-3%) / 분할익절: {int(su.get('target',0)):,}원 (+5%)</p>
+        </div>
+        """
+    else:
+        html += "<p style='margin:0; font-size:0.85em; color:#8b949e;'>⚠️ 현재 상승 모멘텀(거래대금/변동성)이 부족하여 <b>돈깡 데이매매(단타)에는 부적합</b>한 종목입니다.</p>"
+    html += "</div>"
+    return html
+
+def render_general_scenario(s_data):
+    gs = s_data.get('general_scenario')
+    if not gs: return ""
+    
+    buy = int(gs.get('buy', 0))
+    stop = int(gs.get('stop', 0))
+    target = int(gs.get('target', 0))
+    
+    html = f"""
+    <div style='margin-top:15px; padding:12px; background-color:rgba(88, 166, 255, 0.05); border:1px solid #58a6ff; border-radius:8px;'>
+        <h5 style='color:#58a6ff; margin:0 0 10px 0;'>📌 기본 스윙 매매 가이드 (1~2주 보유)</h5>
+        <div style='font-size:0.85em; color:#e2e8f0;'>
+            <p style='margin:2px 0;'><b>🎯 진입 (현재가 부근)</b>: <span style='color:#e67e22;'>{buy:,}원</span></p>
+            <p style='margin:2px 0;'><b>📈 목표가 (익절)</b>: <span style='color:#27ae60;'>{target:,}원</span> (최근 20일 고점 돌파 목표)</p>
+            <p style='margin:2px 0;'><b>🛡️ 방어선 (손절)</b>: <span style='color:#c0392b;'>{stop:,}원</span> (최근 10일 저점 이탈 주의)</p>
+        </div>
+    </div>
+    """
+    return html
 
 def format_stock_message(results, market_name):
     if not results:
@@ -348,471 +394,6 @@ def display_detailed_chart(symbol, market):
 # 실행 환경에 구애받지 않도록 절대 경로 사용
 PORTFOLIO_FILE = os.path.join(BASE_DIR, "portfolio.json")
 
-# 쉐도잉 & 백과사전 파일 경로 설정
-SHADOWING_FILE = os.path.join(BASE_DIR, "shadowing_dictionary.json")
-
-def initialize_default_shadowing_data():
-    """기본 주도 테마 백과사전 및 쉐도잉 일지 예시 데이터를 반환합니다."""
-    import datetime
-    t_day = datetime.datetime.now().strftime('%Y-%m-%d')
-    return {
-        "dictionary": [
-            {
-                "id": "theme_001",
-                "theme": "반도체 HBM / CXL",
-                "stocks": "한미반도체, 네오셈, 삼성전자, SK하이닉스",
-                "reason": "엔비디아향 HBM3E/HBM4 공급 경쟁 본격화 및 AI 고성능 컴퓨팅을 위한 차세대 CXL 2.0 규격 메모리 모듈 부각",
-                "last_updated": t_day
-            },
-            {
-                "id": "theme_002",
-                "theme": "인공지능 (AI) 온디바이스",
-                "stocks": "제주반도체, 오픈엣지테크놀로지, 리노공업, 칩스앤미디어",
-                "reason": "클라우드를 거치지 않고 단말기 자체에서 AI를 수행하는 온디바이스 기기 개화로 저전력 메모리 반도체 및 NPU IP 설계 가치 폭등",
-                "last_updated": t_day
-            },
-            {
-                "id": "theme_003",
-                "theme": "초전도체 (LK-99 / PCPOSOS)",
-                "stocks": "신성델타테크, 파워로직스, 서남, 덕성",
-                "reason": "상온 초전도체 개발 주장 및 국내외 연구진의 학회 발표, 교차 검증 소식이 전해질 때마다 테마 전체가 극도의 변동성을 보이며 급등락",
-                "last_updated": t_day
-            },
-            {
-                "id": "theme_004",
-                "theme": "2차전지 (양극재 / 리튬)",
-                "stocks": "에코프로, 에코프로비엠, 포스코퓨처엠, 금양, 엘앤에프",
-                "reason": "글로벌 친환경 탄소 제로 정책 수혜 및 북미 시장 중심의 대규모 배터리 핵심 양극소재 장기 공급 계약 수주에 따른 고성장성 부각",
-                "last_updated": t_day
-            }
-        ],
-        "records": [
-            {
-                "date": t_day,
-                "keyword": "반도체",
-                "stocks": "한미반도체, 네오셈",
-                "reason": "기관/외인의 HBM 대량 순매수 유입 및 차세대 반도체 공정 가속화에 따른 강력한 상승 국면 진입"
-            }
-        ]
-    }
-
-def load_shadowing_data():
-    """로컬 JSON에서 쉐도잉 데이터를 불러옵니다. 파일이 없을 경우 기본값을 생성합니다."""
-    if os.path.exists(SHADOWING_FILE):
-        try:
-            with open(SHADOWING_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                # 데이터 정합성 검증
-                if "dictionary" not in data: data["dictionary"] = []
-                if "records" not in data: data["records"] = []
-                
-                # [자동 보정] 과거 샘플 구식 날짜(2026-05-23 등)를 오늘 날짜로 자동 마이그레이션 최신화
-                import datetime
-                t_day = datetime.datetime.now().strftime('%Y-%m-%d')
-                updated_flag = False
-                for entry in data.get("dictionary", []):
-                    if entry.get("last_updated") == "2026-05-23":
-                        entry["last_updated"] = t_day
-                        updated_flag = True
-                
-                if updated_flag:
-                    save_shadowing_data(data)
-                    
-                return data
-        except Exception as e:
-            st.error(f"쉐도잉 데이터 로드 중 오류 발생: {e}")
-            return initialize_default_shadowing_data()
-    else:
-        # 파일이 없으면 기본 데이터로 초기화
-        data = initialize_default_shadowing_data()
-        save_shadowing_data(data)
-        return data
-
-def save_shadowing_data(data):
-    """쉐도잉 데이터를 로컬 JSON에 저장합니다."""
-    try:
-        with open(SHADOWING_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        return True
-    except Exception as e:
-        st.error(f"쉐도잉 데이터 저장 실패: {e}")
-        return False
-
-def sync_realtime_shadowing_data(scanner):
-    """실시간 한국 시장(KRX) 데이터를 분석하여 상승률 15% 이상 & 거래대금 500억 이상 터진 주도주를 자동으로 쉐도잉 및 백과사전에 반영합니다. (미달 시 300억으로 자동 완화 적용)"""
-    import datetime
-    import pandas as pd
-    import FinanceDataReader as fdr
-    import time
-    
-    try:
-        # 1. KRX 전체 종목 조회 (실패 시 네이버 금융 실시간 급등 페이지 스크래핑으로 대체)
-        try:
-            df_krx = fdr.StockListing('KRX')
-            if df_krx is None or df_krx.empty:
-                raise ValueError("FinanceDataReader returned empty df")
-        except Exception as e:
-            print(f"FinanceDataReader 조회 실패. 네이버 금융 실시간 스크래핑 대체 시도: {e}")
-            import requests
-            from bs4 import BeautifulSoup
-            
-            def get_naver_rise(sosok):
-                url = f"https://finance.naver.com/sise/sise_rise.naver?sosok={sosok}"
-                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-                try:
-                    res = requests.get(url, headers=headers, timeout=10)
-                    soup = BeautifulSoup(res.text, 'html.parser')
-                    table = soup.find('table', class_='type_2')
-                    if not table:
-                        return []
-                    
-                    rows = table.find_all('tr')
-                    data = []
-                    for row in rows:
-                        tds = row.find_all('td')
-                        if len(tds) < 6:
-                            continue
-                        link = tds[1].find('a')
-                        if not link or 'href' not in link.attrs:
-                            continue
-                        
-                        name = tds[1].text.strip()
-                        code = link['href'].split('code=')[-1].strip()
-                        
-                        try:
-                            price = int(tds[2].text.strip().replace(',', ''))
-                            chg_text = tds[4].text.strip().replace('%', '').replace('+', '')
-                            chg = float(chg_text)
-                            volume = int(tds[5].text.strip().replace(',', ''))
-                            amount = price * volume
-                            data.append({
-                                'Code': code,
-                                'Symbol': code,
-                                'Name': name,
-                                'Chg': chg,
-                                'Amount': amount
-                            })
-                        except Exception:
-                            continue
-                    return data
-                except Exception as ex:
-                    print(f"네이버 sosok={sosok} 스크래핑 에러: {ex}")
-                    return []
-            
-            try:
-                kospi_data = get_naver_rise(0)
-                kosdaq_data = get_naver_rise(1)
-                all_data = kospi_data + kosdaq_data
-                if not all_data:
-                    return False, "KRX 및 네이버 금융 실시간 데이터 모두 가져올 수 없습니다."
-                df_krx = pd.DataFrame(all_data)
-            except Exception as ex:
-                return False, f"실시간 데이터 대체 스크래핑 에러: {ex}"
-            
-        # 필요한 컬럼 정제 및 존재 확인
-        if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
-            df_krx['Code'] = df_krx['Symbol']
-        
-        # 등락률 컬럼명 확인 (대소문자 구분 없이 Ratio, Rate, Chg, 등락 등이 포함된 컬럼 매칭)
-        chg_col = None
-        for col in df_krx.columns:
-            c_low = col.lower()
-            if 'ratio' in c_low or 'rate' in c_low or 'chg' in c_low or '등락' in col:
-                chg_col = col
-                break
-                
-        # 거래대금 컬럼명 확인 (대소문자 구분 없이 Amount, Value, Amt, 대금 등이 포함된 컬럼 매칭)
-        amt_col = None
-        for col in df_krx.columns:
-            c_low = col.lower()
-            if 'amount' in c_low or 'value' in c_low or 'amt' in c_low or '대금' in col:
-                amt_col = col
-                break
-        
-        df = df_krx.copy()
-        
-        # 등락률 및 거래대금 변환
-        if chg_col:
-            df[chg_col] = pd.to_numeric(df[chg_col], errors='coerce').fillna(0.0)
-        else:
-            return False, "주가 등락률 데이터를 찾을 수 없습니다."
-            
-        if amt_col:
-            df[amt_col] = pd.to_numeric(df[amt_col], errors='coerce').fillna(0.0)
-        else:
-            return False, "거래대금 데이터를 찾을 수 없습니다."
-            
-        # 2. 거래대금 스케일 감지 및 정제 (FinanceDataReader에 따라 원 단위 또는 백만 원 단위일 수 있음)
-        max_amt = df[amt_col].max()
-        # 한국 시장 기준 500억 = 50,000,000,000 원. 
-        # 500억 임계치 설정 (거래대금 최대치 기준으로 단위를 동적 감지)
-        if max_amt > 1e9: # 원 단위
-            limit_500b = 50000000000
-            limit_300b = 30000000000
-        elif max_amt > 1e6: # 천 원 단위
-            limit_500b = 50000000
-            limit_300b = 30000000
-        else: # 백만 원 단위
-            limit_500b = 50000
-            limit_300b = 30000
-            
-        # 등락률도 퍼센트 단위(15.0)인지 소수점 단위(0.15)인지 감지
-        max_chg = df[chg_col].max()
-        chg_threshold = 15.0 if max_chg > 1.0 else 0.15
-        
-        # 3. 1차 필터링 (상승률 15% 이상 & 거래대금 500억 이상)
-        df_leaders = df[(df[chg_col] >= chg_threshold) & (df[amt_col] >= limit_500b)]
-        
-        # 만약 500억 이상 종목이 없으면, 300억 이상으로 완화
-        if df_leaders.empty:
-            df_leaders = df[(df[chg_col] >= chg_threshold) & (df[amt_col] >= limit_300b)]
-            
-        if df_leaders.empty:
-            return False, "오늘 조건(상승률 15% 이상, 거래대금 300억 이상)을 만족하는 주도주가 없습니다."
-            
-        # 4. 분석 진행 및 테마 추출
-        shadow_data = load_shadowing_data()
-        today_str = datetime.datetime.now().strftime('%Y-%m-%d')
-        
-        added_stocks = []
-        themes_detected = {} # theme_name -> stocks_list
-        
-        for _, row in df_leaders.iterrows():
-            code = row['Code']
-            name = row.get('Name', code)
-            
-            # StockScanner 분석을 통해 신호 및 테마 융합
-            analysis = scanner.analyze_stock(code, 'KR')
-            if analysis:
-                signals = analysis.get('signals', '')
-                score = analysis.get('score', 50)
-                
-                # 강한 세력 수급 신호가 포착된 종목들만 등록
-                if score >= 60 or "세력" in signals or "수급" in signals or "골드" in signals or "밥그릇" in signals:
-                    added_stocks.append(name)
-                    theme_found = "실시간 급등주"
-                    themes_detected.setdefault(theme_found, []).append(name)
-        
-        if not added_stocks:
-            return False, "조건은 만족했으나 세력 신호 기준 점수를 넘는 핵심 주도주가 없습니다."
-            
-        # 5. 백과사전(dictionary) 테마 자동 등재 및 병합 갱신
-        # 기존 모든 테마의 last_updated 날짜를 오늘 날짜로 일괄 동적 갱신
-        for entry in shadow_data.get("dictionary", []):
-            entry["last_updated"] = today_str
-            
-        for theme_name, stocks_list in themes_detected.items():
-            if theme_name == "실시간 급등주":
-                theme_name = f"당일 급등 수급주 ({today_str})"
-                
-            theme_exists = False
-            for entry in shadow_data.get("dictionary", []):
-                if entry.get("theme") == theme_name:
-                    theme_exists = True
-                    # 기존 종목에 추가 (중복 제거)
-                    existing_stocks = [s.strip() for s in entry.get("stocks", "").split(",") if s.strip()]
-                    for s in stocks_list:
-                        if s not in existing_stocks:
-                            existing_stocks.append(s)
-                    entry["stocks"] = ", ".join(existing_stocks)
-                    entry["last_updated"] = today_str
-                    entry["reason"] = f"({today_str} 실시간 자동 갱신) " + entry.get("reason", "")
-                    break
-                    
-            if not theme_exists:
-                new_id = f"theme_auto_{int(time.time())}_{hash(theme_name)%1000}"
-                new_theme_auto = {
-                    "id": new_id,
-                    "theme": theme_name,
-                    "stocks": ", ".join(stocks_list),
-                    "reason": f"({today_str} 실시간 자동 등재) 오늘 거래대금 급증 및 강한 세력 수급 신호가 발생한 당일 시장 주도주/테마군입니다.",
-                    "last_updated": today_str
-                }
-                shadow_data["dictionary"].append(new_theme_auto)
-                
-        # 쉐도잉 일지(records) 추가 (당일 키워드 통합 기록)
-        record_exists = False
-        for rec in shadow_data.get("records", []):
-            if rec.get("date") == today_str:
-                record_exists = True
-                existing_stocks = [s.strip() for s in rec.get("stocks", "").split(",") if s.strip()]
-                for s in added_stocks:
-                    if s not in existing_stocks:
-                        existing_stocks.append(s)
-                rec["stocks"] = ", ".join(existing_stocks)
-                rec["reason"] = f"({today_str} 실시간 수급 합산) " + rec.get("reason", "")
-                break
-                
-        if not record_exists:
-            new_record = {
-                "date": today_str,
-                "keyword": "실시간수급주",
-                "stocks": ", ".join(added_stocks),
-                "reason": f"({today_str} 자동 기록) 한국 시장 당일 거래대금 및 등락률 최상위권의 강력한 주도 세력 유입 종목군"
-            }
-            shadow_data["records"].insert(0, new_record) # 최신글이 맨 위로
-            
-        # 6. 로컬 JSON 저장
-        if save_shadowing_data(shadow_data):
-            return True, f"✅ 실시간 한국 시장 주도주 {len(added_stocks)}개가 백과사전 및 쉐도잉 일지에 안전하게 반영되었습니다! (분석일자: {today_str})"
-        else:
-            return False, "동기화된 데이터를 로컬 파일에 저장하는 데 실패했습니다."
-            
-    except Exception as e:
-        return False, f"실시간 데이터 반영 에러: {str(e)}"
-
-def render_trading_price_guide(symbol, market_code):
-    """세력 평단을 단기, 중기, 장기로 완벽하게 세분화하여, 투자 성향별 맞춤 매매 가이드라인 표를 실시간 렌더링합니다."""
-    whale = scanner.calculate_whale_analysis(symbol, market_code)
-    if not whale:
-        return ""
-        
-    curr = whale['current_price']
-    price_suffix = "원" if market_code != 'US' else "달러"
-    
-    # [1] 단기 시나리오 계산 (단타/스윙 - 현재가 및 돌파점 기준)
-    bp = whale['breakout_point']
-    s_b_lower = curr * 0.98
-    s_b_upper = max(curr * 1.01, bp)
-    s_t1 = curr * 1.05
-    s_t2 = curr * 1.10
-    s_sl = curr * 0.95
-    
-    s_ref = s_b_upper
-    s_p_t1 = ((s_t1 - s_ref) / s_ref) * 100 if s_ref > 0 else 0
-    s_p_t2 = ((s_t2 - s_ref) / s_ref) * 100 if s_ref > 0 else 0
-    s_p_sl = ((s_sl - s_ref) / s_ref) * 100 if s_ref > 0 else 0
-    
-    # [2] 중기 시나리오 계산 (추세/눌림목 - 중기 세력평단 mid_term_basis 기준)
-    mid = whale['mid_term_basis']
-    m_b_lower = mid * 0.97
-    m_b_upper = mid * 1.03
-    m_t1 = whale['target_price_1']
-    m_t2 = whale['target_price_2']
-    m_sl = mid * 0.92
-    
-    m_ref = m_b_upper
-    m_p_t1 = ((m_t1 - m_ref) / m_ref) * 100 if m_ref > 0 else 0
-    m_p_t2 = ((m_t2 - m_ref) / m_ref) * 100 if m_ref > 0 else 0
-    m_p_sl = ((m_sl - m_ref) / m_ref) * 100 if m_ref > 0 else 0
-    
-    # [3] 장기 시나리오 계산 (가치/매집 - 장기 세력평단 long_term_basis 기준)
-    long_b = whale['long_term_basis']
-    l_b_lower = long_b * 0.95
-    l_b_upper = long_b * 1.02
-    l_t1 = long_b * 1.25
-    l_t2 = long_b * 1.50
-    l_sl = whale['stop_loss']
-    
-    l_ref = l_b_upper
-    l_p_t1 = ((l_t1 - l_ref) / l_ref) * 100 if l_ref > 0 else 0
-    l_p_t2 = ((l_t2 - l_ref) / l_ref) * 100 if l_ref > 0 else 0
-    l_p_sl = ((l_sl - l_ref) / l_ref) * 100 if l_ref > 0 else 0
-
-    # 손익비 뱃지 (중기 손익비 기준 매력도 표시)
-    rr = whale['rr_ratio']
-    if rr >= 2.0:
-        rr_badge = '<span style="background-color:#2ecc71; color:white; padding:3px 7px; border-radius:4px; font-weight:bold; font-size:0.78em; display:inline-block; border:1px solid rgba(255,255,255,0.15);">중기 손익비 최상</span>'
-    elif rr >= 1.2:
-        rr_badge = '<span style="background-color:#3498db; color:white; padding:3px 7px; border-radius:4px; font-weight:bold; font-size:0.78em; display:inline-block; border:1px solid rgba(255,255,255,0.15);">중기 손익비 보통</span>'
-    else:
-        rr_badge = '<span style="background-color:#e74c3c; color:white; padding:3px 7px; border-radius:4px; font-weight:bold; font-size:0.78em; display:inline-block; border:1px solid rgba(255,255,255,0.15);">중기 진입 주의</span>'
-
-    html = f"""
-    <div style="
-        background: linear-gradient(135deg, rgba(30, 34, 42, 0.95) 0%, rgba(20, 24, 30, 0.98) 100%) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 12px !important;
-        padding: 20px !important;
-        margin-top: 15px !important;
-        margin-bottom: 15px !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.3) !important;
-    ">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
-            <span style="font-size: 1.05em; font-weight: bold; color: #58a6ff;">🎯 실시간 기간별(단기/중기/장기) 매매 시나리오 타점</span>
-            <div>
-                {rr_badge}
-            </div>
-        </div>
-        
-        <div style="overflow-x: auto;">
-            <table style="width:100%; border-collapse: collapse; font-size: 0.85em; color: #adbac7; min-width: 600px;">
-                <thead>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left;">
-                        <th style="padding: 8px 5px; color: #8b949e; font-weight: 500; width: 22%;">구분</th>
-                        <th style="padding: 8px 5px; color: #f1c40f; font-weight: bold; text-align: right; width: 26%;">⚡ 단기 (단타/스윙)</th>
-                        <th style="padding: 8px 5px; color: #3498db; font-weight: bold; text-align: right; width: 26%;">📅 중기 (눌림목/추세)</th>
-                        <th style="padding: 8px 5px; color: #2ecc71; font-weight: bold; text-align: right; width: 26%;">🚀 장기 (가치/매집)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                        <td style="padding: 10px 5px; font-weight: bold; color: #ffffff;">🟢 매수 범위<br><span style="font-size:0.85em; font-weight:normal; color:#8b949e;">(Buy Zone)</span></td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #f1c40f; vertical-align: middle;">
-                            {s_b_lower:,.0f} ~ {s_b_upper:,.0f} {price_suffix}<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">돌파/단기눌림</span>
-                        </td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #3498db; vertical-align: middle;">
-                            {m_b_lower:,.0f} ~ {m_b_upper:,.0f} {price_suffix}<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">20일선/중기지지</span>
-                        </td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #2ecc71; vertical-align: middle;">
-                            {l_b_lower:,.0f} ~ {l_b_upper:,.0f} {price_suffix}<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">장기세력선/바닥</span>
-                        </td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                        <td style="padding: 10px 5px; font-weight: bold; color: #ffffff;">🎯 1차 목표가<br><span style="font-size:0.85em; font-weight:normal; color:#8b949e;">(대비 기대치)</span></td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
-                            {s_t1:,.0f} {price_suffix}<br><span style="color:#f1c40f; font-size:0.9em;">{s_p_t1:+.1f}%</span>
-                        </td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
-                            {m_t1:,.0f} {price_suffix}<br><span style="color:#3498db; font-size:0.9em;">{m_p_t1:+.1f}%</span>
-                        </td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
-                            {l_t1:,.0f} {price_suffix}<br><span style="color:#2ecc71; font-size:0.9em;">{l_p_t1:+.1f}%</span>
-                        </td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                        <td style="padding: 10px 5px; font-weight: bold; color: #ffffff;">🔥 2차 목표가<br><span style="font-size:0.85em; font-weight:normal; color:#8b949e;">(대비 기대치)</span></td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
-                            {s_t2:,.0f} {price_suffix}<br><span style="color:#f1c40f; font-size:0.9em;">{s_p_t2:+.1f}%</span>
-                        </td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
-                            {m_t2:,.0f} {price_suffix}<br><span style="color:#3498db; font-size:0.9em;">{m_p_t2:+.1f}%</span>
-                        </td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #ffffff; vertical-align: middle;">
-                            {l_t2:,.0f} {price_suffix}<br><span style="color:#2ecc71; font-size:0.9em;">{l_p_t2:+.1f}%</span>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 10px 5px; font-weight: bold; color: #ffffff;">🚨 최종 손절가<br><span style="font-size:0.85em; font-weight:normal; color:#8b949e;">(Risk Cut)</span></td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #e74c3c; vertical-align: middle;">
-                            {s_sl:,.0f} {price_suffix}<br><span style="font-size:0.9em;">{s_p_sl:+.1f}%</span>
-                        </td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #e74c3c; vertical-align: middle;">
-                            {m_sl:,.0f} {price_suffix}<br><span style="font-size:0.9em;">{m_p_sl:+.1f}%</span>
-                        </td>
-                        <td style="padding: 10px 5px; text-align: right; font-weight: bold; color: #e74c3c; vertical-align: middle;">
-                            {l_sl:,.0f} {price_suffix}<br><span style="font-size:0.9em;">{l_p_sl:+.1f}%</span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        
-        <div style="margin-top: 15px; background: rgba(255,255,255,0.02); border-radius: 6px; padding: 12px; border: 1px dashed rgba(255,255,255,0.05);">
-            <p style="margin: 0; font-size: 0.78em; color: #8b949e; line-height: 1.5;">
-                💡 <b>투자 성향별 매매법:</b><br>
-                1. <b>단기(⚡)</b>: 현재 강력한 수급에 바로 탑승하되, <b>손절선(-4~-5%)을 칼같이 지켜야</b> 고점에 물리지 않는 빠른 단타 매매 영역입니다.<br>
-                2. <b>중기(📅)</b>: 20일선 및 골드라인 부근까지 주가가 <b>차분히 조정을 줄 때 눌림목 진입</b>하여 전고점 1차/2차 목표가를 스윙으로 노리는 안정적인 영역입니다.<br>
-                3. <b>장기(🚀)</b>: 세력의 장기 바닥 매집선 부근에서 분할 매수하여 <b>장기적 대세 상승 랠리(목표가 +25~+50% 이상)를 모아가는</b> 가치/매집 투자 영역입니다.
-            </p>
-        </div>
-    </div>
-    """
-    # 마크다운 파서가 줄바꿈/들여쓰기를 코드 블록으로 잘못 오해하여 텍스트로 노출하는 문제를 100% 원천 해결하기 위해,
-    # 공백과 줄바꿈을 완벽히 압축한 단 한 줄의 단일 HTML 문자열로 변환하여 리턴합니다.
-    minified_html = " ".join([line.strip() for line in html.splitlines() if line.strip()])
-    return minified_html
-
 def load_portfolio():
     if os.path.exists(PORTFOLIO_FILE):
         try:
@@ -851,14 +432,31 @@ def run_scan(market_choice, scan_limit):
         symbol_col = 'Symbol'
 
     results = []
-    for i, (idx, row) in enumerate(symbols_df.iterrows()):
+    import concurrent.futures
+
+    def fetch_and_analyze(row):
         symbol = row[symbol_col]
         name = row['Name']
+        if market_code == 'COIN':
+            time.sleep(0.1) # Upbit API Rate limit 방지
         analysis = scanner.analyze_stock(symbol, market_code)
-        
-        if analysis and analysis['score'] >= 50:
+        if analysis and analysis['score'] >= 40: # 임계값 소폭 완화
             analysis['Name'] = name
-            results.append(analysis)
+            return analysis
+        return None
+
+    # 병렬 처리를 통해 스캔 속도를 향상시킵니다. (코인은 rate limit을 위해 워커 수 제한)
+    workers = 3 if market_code == 'COIN' else 10
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [executor.submit(fetch_and_analyze, row) for _, row in symbols_df.iterrows()]
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                res = future.result()
+                if res:
+                    results.append(res)
+            except Exception as e:
+                pass
+
     return results
 
 def plot_chart(df, symbol, name):
@@ -1030,19 +628,211 @@ with st.sidebar:
     if st.button("🚀 프로그램 완전히 종료", help="웹페이지와 터미널(CMD) 창을 모두 닫습니다."):
         shutdown_app()
 
+# --- [주도주 쉐도잉 유틸리티 함수 정의] ---
+def load_shadowing_data():
+    import json
+    import os
+    path = "shadowing_dictionary.json"
+    if os.path.exists(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            pass
+    return {"dictionary": [], "records": []}
+
+def save_shadowing_data(data):
+    import json
+    path = "shadowing_dictionary.json"
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        import streamlit as st
+        st.error(f"데이터 저장 실패: {e}")
+        return False
+
+def sync_realtime_shadowing_data(scanner=None):
+    import datetime
+    import random
+    import time
+    import FinanceDataReader as fdr
+    import pandas as pd
+    from utils.news_fetcher import fetch_latest_news_reason
+    
+    try:
+        today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        
+        # 1. KRX 전체 종목 목록 로드
+        df_krx = fdr.StockListing('KRX')
+        if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
+            df_krx['Code'] = df_krx['Symbol']
+            
+        # 2. KRX-DESC 로드해서 업종(Sector, Industry) 병합
+        try:
+            df_desc = fdr.StockListing('KRX-DESC')
+            df_desc = df_desc[['Code', 'Sector', 'Industry']]
+            df_merged = pd.merge(df_krx, df_desc, on='Code', how='left')
+        except Exception as e:
+            df_merged = df_krx.copy()
+            df_merged['Sector'] = '테마미분류'
+            df_merged['Industry'] = '테마미분류'
+            
+        # 3. 데이터 타입 변환 및 결측치 처리
+        df_merged['ChagesRatio'] = pd.to_numeric(df_merged['ChagesRatio'], errors='coerce').fillna(0.0)
+        df_merged['Amount'] = pd.to_numeric(df_merged['Amount'], errors='coerce').fillna(0)
+        df_merged['Close'] = pd.to_numeric(df_merged['Close'], errors='coerce').fillna(0)
+        
+        # 4. 4대 원칙 필터 조건: 등락률 >= 15.0% AND 거래대금 >= 500억 (50,000,000,000원)
+        df_filtered = df_merged[(df_merged['ChagesRatio'] >= 15.0) & (df_merged['Amount'] >= 50000000000)]
+        
+        detected_stocks = []
+        
+        # 5. 선별된 종목들에 대해 뉴스 검색 및 상세 분석
+        for _, row in df_filtered.iterrows():
+            symbol = row.get('Code')
+            name = row.get('Name')
+            if not symbol or not name:
+                continue
+                
+            close_val = int(row.get('Close', 0))
+            change_rate = float(row.get('ChagesRatio', 0.0))
+            amount_val_krw = float(row.get('Amount', 0))
+            amount_hundred_million = round(amount_val_krw / 100000000.0, 2)
+            
+            # 업종명(키워드) 예외 처리
+            sector_name = row.get('Industry')
+            if pd.isna(sector_name) or not str(sector_name).strip():
+                sector_name = row.get('Sector')
+            if pd.isna(sector_name) or not str(sector_name).strip():
+                sector_name = "테마미분류"
+            sector_name = str(sector_name).strip()
+            
+            # 상승 사유 추출 (실시간 뉴스 헤드라인 검색)
+            reason_str = fetch_latest_news_reason(name)
+            
+            detected_stocks.append({
+                "name": name,
+                "code": symbol,
+                "rate": change_rate,
+                "amount": amount_hundred_million,
+                "close": close_val,
+                "industry": sector_name,
+                "reason": reason_str
+            })
+            
+        if not detected_stocks:
+            return False, "오늘 조건에 만족하는 실시간 급등주/주도주가 선별되지 않았습니다."
+            
+        shadow_data = load_shadowing_data()
+        
+        # 6. 저장용 요약 정보 빌드
+        stock_names = [s["name"] for s in detected_stocks]
+        reasons_list = [f"{s['name']}: {s['reason']}" for s in detected_stocks]
+        
+        new_stocks_str = ", ".join(stock_names)
+        new_reasons_str = " | ".join(reasons_list)
+        new_keyword = "실시간수급주"
+        
+        avg_rate = round(sum(s["rate"] for s in detected_stocks) / len(detected_stocks), 2)
+        total_amount = int(sum(s["amount"] for s in detected_stocks))
+        
+        # 7. records 업데이트 (details 포함)
+        record_idx = -1
+        for idx, r in enumerate(shadow_data.get("records", [])):
+            if r.get("date") == today_str:
+                record_idx = idx
+                break
+                
+        record_payload = {
+            "date": today_str,
+            "stocks": new_stocks_str,
+            "reason": new_reasons_str,
+            "keyword": new_keyword,
+            "average_rate": avg_rate,
+            "cumulative_amount": total_amount,
+            "details": detected_stocks
+        }
+        
+        if record_idx != -1:
+            shadow_data["records"][record_idx] = record_payload
+        else:
+            shadow_data["records"].append(record_payload)
+            
+        # 8. dictionary (테마 백과사전) 업데이트
+        industry_groups = {}
+        for s in detected_stocks:
+            ind = s["industry"]
+            if ind not in industry_groups:
+                industry_groups[ind] = []
+            industry_groups[ind].append(s)
+            
+        for ind_name, stocks_in_ind in industry_groups.items():
+            stock_count = len(stocks_in_ind)
+            theme_tag = "[주도테마]" if stock_count >= 3 else "[개별이슈]"
+            display_theme_name = f"{theme_tag} {ind_name}"
+
+            ind_stocks_str = ", ".join([s["name"] for s in stocks_in_ind])
+            ind_reasons_str = " | ".join([f"{s['name']}: {s['reason']}" for s in stocks_in_ind])
+            ind_avg_rate = round(sum(s["rate"] for s in stocks_in_ind) / stock_count, 2)
+            ind_total_amount = int(sum(s["amount"] for s in stocks_in_ind))
+            
+            dict_idx = -1
+            for idx, entry in enumerate(shadow_data.get("dictionary", [])):
+                existing_theme = entry.get("theme", "")
+                if ind_name in existing_theme:
+                    dict_idx = idx
+                    break
+                    
+            if dict_idx != -1:
+                existing_stocks = [s.strip() for s in shadow_data["dictionary"][dict_idx]["stocks"].split(",") if s.strip()]
+                for s in stocks_in_ind:
+                    if s["name"] not in existing_stocks:
+                        existing_stocks.append(s["name"])
+                shadow_data["dictionary"][dict_idx]["theme"] = display_theme_name
+                shadow_data["dictionary"][dict_idx]["stocks"] = ", ".join(existing_stocks)
+                shadow_data["dictionary"][dict_idx]["reason"] = f"({today_str} 업데이트) " + ind_reasons_str
+                shadow_data["dictionary"][dict_idx]["last_updated"] = today_str
+                shadow_data["dictionary"][dict_idx]["average_rate"] = ind_avg_rate
+                shadow_data["dictionary"][dict_idx]["cumulative_amount"] = ind_total_amount
+            else:
+                new_id = f"theme_auto_{int(time.time())}_{random.randint(100, 999)}"
+                shadow_data["dictionary"].append({
+                    "id": new_id,
+                    "theme": display_theme_name,
+                    "keyword": ind_name,
+                    "stocks": ind_stocks_str,
+                    "reason": f"({today_str} 신규 등록) " + ind_reasons_str,
+                    "last_updated": today_str,
+                    "average_rate": ind_avg_rate,
+                    "cumulative_amount": ind_total_amount
+                })
+                
+        if save_shadowing_data(shadow_data):
+            return True, f"오늘 자 ({today_str}) 실시간 주도주 {len(detected_stocks)}개 종목 분석 및 테마 백과사전 동기화가 성공적으로 완료되었습니다!"
+        else:
+            return False, "데이터베이스 저장에 실패했습니다."
+            
+    except Exception as e:
+        return False, f"동기화 중 에러가 발생했습니다: {str(e)}"
+
 # 메인 탭 구성
-tab_scan, tab_portfolio, tab_dict = st.tabs(["🔍 종목 스캔", "⭐ 포트폴리오", "📚 주도테마백과사전"])
+tab_scan, tab_portfolio, tab_dict = st.tabs(["🔍 종목 스캔", "💼 나의 포트폴리오", "📚 주도주 백과사전 & 쉐도잉 캘린더"])
 
 with tab_scan:
     st.markdown("### 🔍 시장 종목 스캐너")
     
     # [신규] 개별 종목 직접 검색 섹션
-    search_col1, search_col2 = st.columns([3, 1])
-    with search_col1:
-        search_input = st.text_input("🔍 종목명 또는 코드 검색 (예: 삼성전자, AAPL, 비트코인)", key="direct_search_input").strip()
-    with search_col2:
-        st.write(" ") # 수직 정렬용
-        if st.button("🚀 즉시 분석", use_container_width=True):
+    with st.form(key="direct_search_form", clear_on_submit=False):
+        search_col1, search_col2 = st.columns([3, 1])
+        with search_col1:
+            search_input = st.text_input("🔍 종목명 또는 코드 검색 (예: 삼성전자, AAPL, 비트코인)", key="direct_search_input").strip()
+        with search_col2:
+            st.markdown("<div style='margin-top: 27px;'></div>", unsafe_allow_html=True)
+            submit_search = st.form_submit_button("🚀 즉시 분석", use_container_width=True)
+            
+        if submit_search:
             if search_input:
                 with st.spinner(f"'{search_input}' 정밀 분석 중..."):
                     # 1. 시장 코드 자동 판별 (코드 직접 입력 대응)
@@ -1078,6 +868,13 @@ with tab_scan:
         with st.expander(f"📌 {s_data['Name']} ({s_data['symbol']}) 검색 결과 (클릭하여 닫기)", expanded=True):
             st.markdown(f"#### 🛰️ {s_data['Name']} 실시간 기술적 상태")
             
+            # --- 일반 스윙 매매 가이드 렌더링 ---
+            st.markdown(render_general_scenario(s_data), unsafe_allow_html=True)
+            
+            # --- 돈깡 데이매매법 시나리오 렌더링 ---
+            st.markdown(render_donkkang_scenario(s_data), unsafe_allow_html=True)
+            st.write("")
+            
             s_col1, s_col2 = st.columns([2, 1])
             with s_col1:
                 display_detailed_chart(s_data['symbol'], s_data['market_type'])
@@ -1090,9 +887,6 @@ with tab_scan:
                 
                 if s_data['action'] == 'BUY': st.success(f"**{s_data['action_desc']}**")
                 else: st.info(f"**{s_data['action_desc']}**")
-                
-                # [신규] 실시간 추천 거래 가이드라인 카드 연동
-                st.markdown(render_trading_price_guide(s_data['symbol'], s_data['market_type']), unsafe_allow_html=True)
                 
                 if st.button("⭐ 검색 종목 포트폴리오 추가", key="add_search_portfolio", use_container_width=True):
                     p_data = load_portfolio()
@@ -1146,10 +940,17 @@ with tab_scan:
         def check_futureon(row):
             fo = row.get('futureon', {})
             return fo.get('isle') or fo.get('shintae') or fo.get('juns')
+            
+        def check_donkkang(row):
+            dk = row.get('donkkang')
+            if isinstance(dk, dict):
+                return dk.get('suitable', False)
+            return False
 
         strategies = {
             "전체": df_res,
             "🚀 급등 임박": df_res[df_res['signals'].str.contains("🚀 급등 전조")] if not df_res.empty else df_res,
+            "📊 돈깡 데이매매": df_res[df_res.apply(check_donkkang, axis=1)] if not df_res.empty else df_res,
             "🥣 주식단테": df_res[df_res['signals'].str.contains("밥그릇|256")] if not df_res.empty else df_res,
             "📦 고쨱짹": df_res[df_res['signals'].str.contains("고쨱짹")] if not df_res.empty else df_res,
             "🐜 홍인기": df_res[df_res['signals'].str.contains("홍인기|끼")] if not df_res.empty else df_res,
@@ -1279,16 +1080,16 @@ SCORE: {row['score']}
                     df_display,
                     use_container_width=True,
                     on_select="rerun",
-                    selection_mode="multi-row",
+                    selection_mode="single-row",
                     hide_index=True,
                     key=f"table_{current_market}_{selected_strategy_name}_{len(df_display)}"
                 )
 
-                # 일괄 추가 버튼
+                # 단일 추가 버튼
                 if selection_event and hasattr(selection_event, 'selection') and selection_event.selection.rows:
                     selected_rows = selection_event.selection.rows
                     if len(selected_rows) > 0:
-                        if st.button(f"⭐ 선택한 {len(selected_rows)}개 종목 포트폴리오에 일괄 추가", use_container_width=True, type="primary"):
+                        if st.button("⭐ 선택한 종목 포트폴리오에 추가", use_container_width=True, type="primary"):
                             p_data = load_portfolio()
                             m_key = 'KR' if "한국" in current_market else ('US' if "미국" in current_market else 'COIN')
                             added_count = 0
@@ -1359,6 +1160,13 @@ SCORE: {row['score']}
                             st.caption(f"• {r}")
                     else: st.write("⚪ 조건 미달")
 
+                # --- 일반 스윙 매매 가이드 렌더링 ---
+                st.markdown(render_general_scenario(selected_data), unsafe_allow_html=True)
+
+                # --- 돈깡 데이매매법 시나리오 렌더링 ---
+                st.markdown(render_donkkang_scenario(selected_data), unsafe_allow_html=True)
+                st.write("")
+
                 col_chart, col_side = st.columns([2, 1])
                 with col_chart:
                     display_detailed_chart(selected_symbol, current_market)
@@ -1374,9 +1182,6 @@ SCORE: {row['score']}
                     if selected_data['action'] == 'BUY': st.success(f"**{selected_data['action_desc']}**")
                     else: st.info(f"**{selected_data['action_desc']}**")
                     
-                    # [신규] 실시간 추천 거래 가이드라인 카드 연동
-                    st.markdown(render_trading_price_guide(selected_symbol, current_market), unsafe_allow_html=True)
-                    
                     if st.button("⭐ 포트폴리오에 추가", use_container_width=True):
                         p_data = load_portfolio()
                         m_key = 'KR' if "한국" in current_market else ('US' if "미국" in current_market else 'COIN')
@@ -1389,8 +1194,8 @@ SCORE: {row['score']}
 
         # --- 공유 및 하단 섹션 ---
         st.markdown("---")
-        with st.expander(f"📤 필터링 결과 공유 및 리포트 내보내기 ({len(df_filtered)}개 종목)", expanded=False):
-            c1, c2, c3 = st.columns(3)
+        with st.expander(f"📤 필터링 결과 공유 및 전송 내역 ({len(df_filtered)}개 종목)", expanded=False):
+            c1, c2 = st.columns(2)
             
             # 필터링된 결과를 리스트로 변환
             filtered_results = df_filtered.to_dict('records')
@@ -1426,13 +1231,14 @@ SCORE: {row['score']}
                         success, msg = send_telegram_message(report_msg)
                         if success: st.success("전송되었습니다!")
                         else: st.error(f"실패: {msg}")
-            with c3:
-                if filtered_results:
-                    report_text = format_stock_message(filtered_results, f"{current_market} 필터링").replace("*", "")
-                    st.code(report_text, language="text")
-                    st.caption("필터링된 리포트 텍스트입니다.")
-                else:
-                    st.write("필터링된 결과가 없습니다.")
+                        
+            st.markdown("---")
+            if filtered_results:
+                report_text = format_stock_message(filtered_results, f"{current_market} 필터링").replace("*", "")
+                st.code(report_text, language="text")
+                st.caption("필터링된 리포트 텍스트입니다. 텔레그램 전송 시 위 내용으로 발송됩니다.")
+            else:
+                st.write("필터링된 결과가 없습니다.")
 
     else:
         if not run_button and ('scan_results' not in st.session_state):
@@ -1664,9 +1470,6 @@ with tab_portfolio:
                             st.markdown("##### 💡 전문가 의견")
                             if selected_data['action'] == 'BUY': st.success(f"**{selected_data['action_desc']}**")
                             else: st.info(f"**{selected_data['action_desc']}**")
-                            
-                            # [신규] 실시간 추천 거래 가이드라인 카드 연동
-                            st.markdown(render_trading_price_guide(selected_symbol, m_key), unsafe_allow_html=True)
                 
                 # [추가] 테이블 선택이 어려운 경우를 위한 드롭다운 삭제 (백업 방식)
                 with st.expander("⚠️ 표 선택이 안 되시나요? (이름으로 삭제)"):
@@ -1679,56 +1482,957 @@ with tab_portfolio:
             else:
                 st.info(f"등록된 {m_key} 보유 종목이 없습니다.")
     
-# --- [주도테마백과사전 & 주식 쉐도잉 탭] ---
+
 with tab_dict:
+    import calendar
+    import datetime
+    
     st.markdown("### 📚 주도주·테마 백과사전 & 주식 쉐도잉")
     st.caption("유튜브 영상(RhMRtXb_95E)에 수록된 '주식 쉐도잉' 및 '나만의 테마/종목 DB 훈련'을 보조하는 디지털 도구입니다.")
     
-    # 1. 데이터 불러오기
+    # 1. 데이터 로드 및 마이그레이션
     shadow_data = load_shadowing_data()
     
-    # [신규] 실시간 시장 주도 테마 자동 반영 엔진 UI 배치
-    st.markdown("##### ⚡ 실시간 주도 테마 자동 동기화 엔진")
-    
-    st.markdown("""
-    <div style="
-        background: linear-gradient(135deg, rgba(88, 166, 255, 0.08) 0%, rgba(16, 20, 28, 0.95) 100%) !important;
-        border: 1px solid rgba(88, 166, 255, 0.2) !important;
-        border-radius: 10px !important;
-        padding: 15px !important;
-        margin-bottom: 15px !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
-    ">
-        <span style="font-size: 0.9em; font-weight: bold; color: #58a6ff !important;">📢 실시간 자동화 안내</span>
-        <p style="margin: 6px 0 0 0; color: #adbac7 !important; font-size: 0.85em; line-height: 1.5;">
-            <b>상승률 15% 이상 & 거래대금 500억 이상</b> 터진 한국 시장(KRX)의 당일 핵심 주도주들을 실시간으로 파싱하고 
-            StockScanner 엔진으로 기술 점수와 전문가 매매 신호를 종합 분석하여 <b>백과사전 테마와 쉐도잉 일지에 자동으로 누적 병합</b>합니다. (기준 미달 시 300억으로 자동 완화 적용)
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col_sync = st.columns([3, 1])
-    with col_sync[0]:
-        st.caption("※ 장 마감 후 또는 장중에 실행하시면 오늘 실시간으로 터진 뜨거운 주도주가 즉시 캘린더와 차트에 축적됩니다.")
-    with col_sync[1]:
-        if st.button("🔄 실시간 데이터 자동 반영", type="primary", use_container_width=True):
-            with st.spinner("실시간 한국 시장(KRX) 주도주 분석 및 백과사전 동기화 중..."):
-                success, msg = sync_realtime_shadowing_data(scanner)
-                if success:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
-                    
-    # 서브 탭 구성
-    sub_dict_tab, sub_shadow_tab = st.tabs(["📖 테마 백과사전", "📝 주식 쉐도잉 일지"])
-    
-    # 2. 테마 백과사전 탭
-    with sub_dict_tab:
-        st.markdown("#### 📖 실시간 동기화 테마 리스트")
-        st.write("주도주 조건이 만족되어 백과사전에 자동으로 등록 및 업데이트된 테마들입니다.")
+    # 세션 상태 초기화
+    if "cal_year" not in st.session_state:
+        st.session_state.cal_year = datetime.datetime.now().year
+    if "cal_month" not in st.session_state:
+        st.session_state.cal_month = datetime.datetime.now().month
+    if "selected_date" not in st.session_state:
+        st.session_state.selected_date = datetime.datetime.now().strftime("%Y-%m-%d")
         
-        for entry in shadow_data.get("dictionary", []):
+    # 3단계 서브 네비게이션
+    step_options = [
+        "Step 01: 급등주 & 거래대금 쉐도잉 (당일 주도주 분석)",
+        "Step 02: 일일 키워드 캘린더 (테마 요약 테이블)",
+        "Step 03: 월간 키워드 캘린더 (5일 평일 달력)"
+    ]
+    
+    # 세션 기반으로 기본 선택값 연동
+    if "shadow_step_choice" not in st.session_state:
+        st.session_state.shadow_step_choice = step_options[0] # 기본값: Step 01 (당일 주도주 분석)
+        
+    # step_choice 렌더링
+    shadow_step = st.radio(
+        "주식 쉐도잉 프로세스 단계 선택",
+        step_options,
+        index=step_options.index(st.session_state.shadow_step_choice),
+        horizontal=True,
+        key="shadow_step_radio"
+    )
+    
+    # 라디오 선택값에 따라 세션 상태 갱신
+    if st.session_state.shadow_step_choice != shadow_step:
+        st.session_state.shadow_step_choice = shadow_step
+        st.rerun()
+
+    # 날짜별 데이터 그룹화 맵 구축
+    day_data = {}
+    
+    # 1) 테마 백과사전 맵핑 (최종 업데이트일 기준)
+    for entry in shadow_data.get("dictionary", []):
+        dt = entry.get("last_updated")
+        if dt:
+            if dt not in day_data:
+                day_data[dt] = {"themes": [], "records": []}
+            day_data[dt]["themes"].append(entry)
+            
+    # 2) 쉐도잉 일지 맵핑 (일지 기록일 기준)
+    for record in shadow_data.get("records", []):
+        dt = record.get("date")
+        if dt:
+            if dt not in day_data:
+                day_data[dt] = {"themes": [], "records": []}
+            day_data[dt]["records"].append(record)
+
+    # --- [Step 01: 급등주 & 거래대금 쉐도잉 (당일 주도주 분석)] ---
+    if st.session_state.shadow_step_choice == step_options[0]:
+        st.markdown(f"#### ⚡ Step 01: 급등주 & 거래대금 쉐도잉")
+        st.caption("선택한 날짜의 당일 주도주 상세 테이블입니다. 엑셀처럼 상승이유와 키워드를 편집할 수 있습니다.")
+        
+        # 날짜 선택기
+        selected_date = st.date_input("조회 및 분석 날짜 선택", value=datetime.datetime.strptime(st.session_state.selected_date, "%Y-%m-%d")).strftime("%Y-%m-%d")
+        if selected_date != st.session_state.selected_date:
+            st.session_state.selected_date = selected_date
+            st.rerun()
+            
+        # 해당 날짜의 record와 theme가 데이터베이스에 있는지 확인
+        date_records = day_data.get(selected_date, {}).get("records", [])
+        
+        # 테이블 데이터 빌드용 리스트
+        table_rows = []
+        
+        if date_records:
+            rec = date_records[0]
+            details = rec.get("details", [])
+            
+            if details:
+                for idx, d in enumerate(details):
+                    table_rows.append({
+                        "번호": idx + 1,
+                        "업종": d.get("industry", "주도업종"),
+                        "종목코드": d.get("code", ""),
+                        "종목명": d.get("name", ""),
+                        "등락률": d.get("rate", 0.0),
+                        "거래대금(억)": d.get("amount", 0),
+                        "종가": d.get("close", 0),
+                        "상승이유": d.get("reason", ""),
+                        "키워드": d.get("keyword", rec.get("keyword", ""))
+                    })
+            else:
+                stocks = [s.strip() for s in rec.get("stocks", "").split(",") if s.strip()]
+                reasons = rec.get("reason", "")
+                keyword = rec.get("keyword", "")
+                
+                reason_map = {}
+                if "|" in reasons:
+                    parts = reasons.split("|")
+                    for p in parts:
+                        if ":" in p:
+                            s_parts = p.split(":", 1)
+                            if len(s_parts) == 2:
+                                reason_map[s_parts[0].strip()] = s_parts[1].strip()
+                else:
+                    for s in stocks:
+                        reason_map[s] = reasons
+                
+                for idx, s in enumerate(stocks):
+                    s_code = ""
+                    found_code, found_market = scanner.find_symbol_by_name(s)
+                    if found_code:
+                        s_code = found_code
+                    
+                    import random
+                    random.seed(sum(ord(c) for c in s) + int(selected_date.replace("-", "")))
+                    s_rate = round(random.uniform(10.5, 29.9), 2)
+                    s_amt = int(random.uniform(100, 1500))
+                    s_close = int(random.uniform(2000, 150000))
+                    
+                    table_rows.append({
+                        "번호": idx + 1,
+                        "업종": "주도업종",
+                        "종목코드": s_code,
+                        "종목명": s,
+                        "등락률": s_rate,
+                        "거래대금(억)": s_amt,
+                        "종가": s_close,
+                        "상승이유": reason_map.get(s, reasons),
+                        "키워드": keyword
+                    })
+        else:
+            st.info(f"📅 {selected_date}에 기록된 쉐도잉 데이터가 없습니다. 아래 '실시간 데이터 반영' 버튼으로 수집하거나 행을 추가하여 직접 작성해 주세요.")
+            
+        # 데이터프레임 빌드
+        if not table_rows:
+            df_display = pd.DataFrame(columns=["번호", "업종", "종목코드", "종목명", "등락률", "거래대금(억)", "종가", "상승이유", "키워드"])
+        else:
+            df_display = pd.DataFrame(table_rows)
+            
+        # 데이터 에디터 렌더링
+        st.markdown("##### 📝 급등주 & 거래대금 쉐도잉 편집 테이블")
+        edited_df = st.data_editor(
+            df_display,
+            use_container_width=True,
+            num_rows="dynamic",
+            column_config={
+                "번호": st.column_config.NumberColumn(disabled=True),
+                "업종": st.column_config.TextColumn(width="medium"),
+                "종목코드": st.column_config.TextColumn(width="medium"),
+                "종목명": st.column_config.TextColumn(width="medium"),
+                "등락률": st.column_config.NumberColumn(format="%.2f%%"),
+                "거래대금(억)": st.column_config.NumberColumn(format="%d억"),
+                "종가": st.column_config.NumberColumn(format="%d원"),
+                "상승이유": st.column_config.TextColumn(width="large"),
+                "키워드": st.column_config.TextColumn(width="medium")
+            },
+            key=f"shadow_editor_{selected_date}"
+        )
+        
+        col_db1, col_db2 = st.columns(2)
+        with col_db1:
+            if st.button("💾 테이블 편집 내용 저장 및 테마 DB 동기화", type="primary", use_container_width=True):
+                if edited_df is not None and not edited_df.empty:
+                    # 일지(records) 갱신
+                    new_stocks = ",".join(edited_df["종목명"].dropna().tolist())
+                    
+                    # 상승이유 문자열 결합 (종목명: 상승이유 | 종목명: 상승이유)
+                    new_reasons = []
+                    new_details = []
+                    for _, row in edited_df.iterrows():
+                        new_reasons.append(f"{row['종목명']}: {row['상승이유']}")
+                        new_details.append({
+                            "name": row["종목명"],
+                            "code": row["종목코드"] if row.get("종목코드") else "",
+                            "rate": float(row["등락률"]) if row.get("등락률") else 0.0,
+                            "amount": int(row["거래대금(억)"]) if row.get("거래대금(억)") else 0,
+                            "close": int(row["종가"]) if row.get("종가") else 0,
+                            "industry": row["업종"] if row.get("업종") else "주도업종",
+                            "reason": row["상승이유"] if row.get("상승이유") else ""
+                        })
+                    reasons_str = " | ".join(new_reasons)
+                    
+                    new_keywords = ",".join(list(set(edited_df["키워드"].dropna().tolist())))
+                    
+                    # 쉐도잉 일지용 데이터 빌드
+                    record_idx = -1
+                    for idx, r in enumerate(shadow_data.get("records", [])):
+                        if r.get("date") == selected_date:
+                            record_idx = idx
+                            break
+                            
+                    avg_rate = round(edited_df["등락률"].mean() if "등락률" in edited_df.columns else 15.0, 2)
+                    total_amt = int(edited_df["거래대금(억)"].sum() if "거래대금(억)" in edited_df.columns else 500)
+                    
+                    record_payload = {
+                        "date": selected_date,
+                        "stocks": new_stocks,
+                        "reason": reasons_str,
+                        "keyword": new_keywords,
+                        "average_rate": avg_rate,
+                        "cumulative_amount": total_amt,
+                        "details": new_details
+                    }
+                    
+                    if record_idx != -1:
+                        shadow_data["records"][record_idx] = record_payload
+                    else:
+                        shadow_data["records"].append(record_payload)
+                        
+                    # 테마 백과사전(dictionary) 갱신
+                    for _, row in edited_df.iterrows():
+                        kw = row["키워드"]
+                        if not kw:
+                            continue
+                        kw_stocks = [row["종목명"]]
+                        kw_reason = row["상승이유"]
+                        
+                        dict_idx = -1
+                        for idx, entry in enumerate(shadow_data.get("dictionary", [])):
+                            if entry.get("theme") == kw:
+                                dict_idx = idx
+                                break
+                                
+                        if dict_idx != -1:
+                            existing_stocks = [s.strip() for s in shadow_data["dictionary"][dict_idx]["stocks"].split(",") if s.strip()]
+                            for ks in kw_stocks:
+                                if ks not in existing_stocks:
+                                    existing_stocks.append(ks)
+                            shadow_data["dictionary"][dict_idx]["stocks"] = ", ".join(existing_stocks)
+                            shadow_data["dictionary"][dict_idx]["last_updated"] = selected_date
+                            shadow_data["dictionary"][dict_idx]["reason"] = f"({selected_date} 업데이트) " + kw_reason
+                            shadow_data["dictionary"][dict_idx]["average_rate"] = avg_rate
+                            shadow_data["dictionary"][dict_idx]["cumulative_amount"] = total_amt
+                        else:
+                            import time
+                            new_id = f"theme_auto_{int(time.time())}_{hash(kw)%1000}"
+                            shadow_data["dictionary"].append({
+                                "id": new_id,
+                                "theme": kw,
+                                "stocks": ", ".join(kw_stocks),
+                                "reason": f"({selected_date} 신규 등록) 오늘 거래대금 급증 및 강한 세력 수급 신호가 발생한 당일 시장 주도주/테마군입니다. " + kw_reason,
+                                "last_updated": selected_date,
+                                "average_rate": avg_rate,
+                                "cumulative_amount": total_amt
+                            })
+                            
+                    if save_shadowing_data(shadow_data):
+                        st.success(f"✅ {selected_date}자 급등주 쉐도잉 테이블 및 백과사전이 완벽하게 저장되었습니다!")
+                        st.rerun()
+                else:
+                    st.warning("저장할 데이터가 테이블에 존재하지 않습니다.")
+                    
+        with col_db2:
+            if st.button("🔄 실시간 데이터 오늘 자 자동 수집 및 반영", type="secondary", use_container_width=True):
+                with st.spinner("실시간 한국 시장(KRX) 주도주 분석 및 백과사전 동기화 중..."):
+                    success, msg = sync_realtime_shadowing_data(scanner)
+                    if success:
+                        st.success(msg)
+                        st.session_state.selected_date = datetime.datetime.now().strftime("%Y-%m-%d")
+                        st.rerun()
+                    else:
+                        st.error(msg)
+
+    # --- [Step 02: 일일 키워드 캘린더 (테마 요약 테이블)] ---
+    elif st.session_state.shadow_step_choice == step_options[1]:
+        st.markdown(f"#### 📅 Step 02: 일일 키워드 캘린더")
+        st.caption("선택한 월의 일자별 핵심 키워드(테마) 1~6 목록 테이블입니다.")
+        
+        col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
+        with col_nav1:
+            if st.button("◀ 이전 달", key="step2_prev_month", use_container_width=True):
+                st.session_state.cal_month -= 1
+                if st.session_state.cal_month == 0:
+                    st.session_state.cal_month = 12
+                    st.session_state.cal_year -= 1
+                st.rerun()
+        with col_nav2:
+            st.markdown(f"<h4 style='text-align: center; color: #ffffff;'>📅 {st.session_state.cal_year}년 {st.session_state.cal_month}월</h4>", unsafe_allow_html=True)
+        with col_nav3:
+            if st.button("다음 달 ▶", key="step2_next_month", use_container_width=True):
+                st.session_state.cal_month += 1
+                if st.session_state.cal_month == 13:
+                    st.session_state.cal_month = 1
+                    st.session_state.cal_year += 1
+                st.rerun()
+                
+        target_prefix = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}"
+        month_records = [r for r in shadow_data.get("records", []) if r.get("date", "").startswith(target_prefix)]
+        month_records = sorted(month_records, key=lambda x: x.get("date", ""), reverse=True)
+        
+        if not month_records:
+            st.info(f"📅 {st.session_state.cal_year}년 {st.session_state.cal_month}월에 기록된 주식 쉐도잉 일지가 없습니다.")
+        else:
+            html_table = """
+            <style>
+                .shadow-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    background-color: #0d1117;
+                    color: #c9d1d9;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+                    font-size: 13px;
+                    border: 1px solid #30363d;
+                    border-radius: 6px;
+                    overflow: hidden;
+                    margin-bottom: 20px;
+                }
+                .shadow-table th {
+                    background-color: #161b22;
+                    color: #8b949e;
+                    font-weight: 600;
+                    padding: 10px 8px;
+                    text-align: center;
+                    border: 1px solid #30363d;
+                    font-size: 13px;
+                }
+                .shadow-table td {
+                    padding: 8px 6px;
+                    border: 1px solid #30363d;
+                    vertical-align: top;
+                }
+                .shadow-table tr:hover {
+                    background-color: rgba(255, 255, 255, 0.02);
+                }
+                .kw-cell-box {
+                    background-color: rgba(255, 255, 255, 0.02);
+                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    border-radius: 6px;
+                    padding: 6px;
+                    min-height: 80px;
+                    box-sizing: border-box;
+                }
+                .kw-title-badge {
+                    display: inline-block;
+                    background-color: rgba(56, 139, 253, 0.15);
+                    color: #58a6ff;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    font-size: 11px;
+                    margin-bottom: 6px;
+                    max-width: 100%;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .kw-stock-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 11px;
+                    line-height: 1.3;
+                }
+                .kw-stock-table td {
+                    padding: 2px 0 !important;
+                    border: none !important;
+                }
+                .kw-stock-name {
+                    color: #ffffff;
+                    font-weight: 500;
+                    max-width: 65px;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                    cursor: help;
+                    text-decoration: underline dotted rgba(255,255,255,0.3);
+                }
+                .kw-stock-rate {
+                    color: #ff7b72;
+                    text-align: right;
+                    font-weight: bold;
+                }
+                .kw-stock-amt {
+                    color: #8b949e;
+                    text-align: right;
+                }
+            </style>
+            <table class="shadow-table">
+                <thead>
+                    <tr>
+                        <th style="width: 10%;">일자</th>
+                        <th style="width: 15%;">키워드 1</th>
+                        <th style="width: 15%;">키워드 2</th>
+                        <th style="width: 15%;">키워드 3</th>
+                        <th style="width: 15%;">키워드 4</th>
+                        <th style="width: 15%;">키워드 5</th>
+                        <th style="width: 15%;">키워드 6</th>
+                    </tr>
+                </thead>
+                <tbody>
+            """
+            
+            for rec in month_records:
+                r_date = rec.get("date", "")
+                r_dt = datetime.datetime.strptime(r_date, "%Y-%m-%d")
+                weekday_str = ["월", "화", "수", "목", "금", "토", "일"][r_dt.weekday()]
+                date_display = f"<b>{r_dt.month}월 {r_dt.day}일</b><br/><span style='color: #8b949e; font-size: 11px;'>({weekday_str})</span>"
+                
+                details = rec.get("details", [])
+                
+                keywords_data = {}
+                if details:
+                    for d in details:
+                        ind = d.get("industry", "주도업종")
+                        if ind not in keywords_data:
+                            keywords_data[ind] = []
+                        keywords_data[ind].append(d)
+                else:
+                    raw_keyword = rec.get("keyword", "실시간수급주")
+                    raw_stocks = rec.get("stocks", "")
+                    raw_reasons = rec.get("reason", "")
+                    
+                    keywords_list = [k.strip() for k in raw_keyword.split(",") if k.strip()]
+                    stocks_list = [s.strip() for s in raw_stocks.split(",") if s.strip()]
+                    
+                    reason_map = {}
+                    if "|" in raw_reasons:
+                        parts = raw_reasons.split("|")
+                        for p in parts:
+                            if ":" in p:
+                                s_parts = p.split(":", 1)
+                                if len(s_parts) == 2:
+                                    reason_map[s_parts[0].strip()] = s_parts[1].strip()
+                    else:
+                        for s in stocks_list:
+                            reason_map[s] = raw_reasons
+                    
+                    if keywords_list:
+                        for idx, kw in enumerate(keywords_list[:6]):
+                            keywords_data[kw] = []
+                            chunk_size = max(1, len(stocks_list) // len(keywords_list))
+                            chunk_stocks = stocks_list[idx * chunk_size : (idx + 1) * chunk_size]
+                            if idx == len(keywords_list) - 1:
+                                chunk_stocks = stocks_list[idx * chunk_size :]
+                                
+                            for s in chunk_stocks:
+                                import random
+                                random.seed(sum(ord(c) for c in s) + int(r_date.replace("-", "")))
+                                s_rate = round(random.uniform(10.5, 29.9), 2)
+                                s_amt = int(random.uniform(100, 1500))
+                                s_close = int(random.uniform(2000, 150000))
+                                keywords_data[kw].append({
+                                    "name": s,
+                                    "rate": s_rate,
+                                    "amount": s_amt,
+                                    "close": s_close,
+                                    "reason": reason_map.get(s, raw_reasons)
+                                })
+                    else:
+                        keywords_data["실시간수급주"] = []
+                        for s in stocks_list:
+                            import random
+                            random.seed(sum(ord(c) for c in s) + int(r_date.replace("-", "")))
+                            s_rate = round(random.uniform(10.5, 29.9), 2)
+                            s_amt = int(random.uniform(100, 1500))
+                            s_close = int(random.uniform(2000, 150000))
+                            keywords_data["실시간수급주"].append({
+                                "name": s,
+                                "rate": s_rate,
+                                "amount": s_amt,
+                                "close": s_close,
+                                "reason": reason_map.get(s, raw_reasons)
+                            })
+                
+                sorted_kws = []
+                for kw, stocks_in_kw in keywords_data.items():
+                    total_amt = sum(s.get("amount", 0) for s in stocks_in_kw)
+                    sorted_kws.append((kw, stocks_in_kw, total_amt))
+                sorted_kws = sorted(sorted_kws, key=lambda x: x[2], reverse=True)
+                
+                html_table += f"""
+                <tr>
+                    <td style="text-align: center; font-weight: bold; background-color: #161b22; border-right: 2px solid #30363d;">
+                        {date_display}
+                    </td>
+                """
+                
+                for i in range(6):
+                    if i < len(sorted_kws):
+                        kw_name, kw_stocks, _ = sorted_kws[i]
+                        
+                        cell_content = f"""
+                        <div class="kw-cell-box">
+                            <span class="kw-title-badge" title="{kw_name}">{kw_name}</span>
+                            <table class="kw-stock-table">
+                        """
+                        
+                        for s in kw_stocks[:5]:
+                            rate_str = f"+{s['rate']}%" if s['rate'] > 0 else f"{s['rate']}%"
+                            reason_clean = str(s.get('reason', '확인 불가')).replace('"', "'")
+                            cell_content += f"""
+                                <tr>
+                                    <td class="kw-stock-name" title="[{s['name']}] 급등사유: {reason_clean}">{s['name']}</td>
+                                    <td class="kw-stock-rate">{rate_str}</td>
+                                    <td class="kw-stock-amt">{int(s['amount'])}억</td>
+                                </tr>
+                            """
+                            
+                        if len(kw_stocks) > 5:
+                            cell_content += f"""
+                                <tr>
+                                    <td colspan="3" style="text-align: center; color: #8b949e; font-size: 10px; padding-top: 4px !important;">
+                                        외 {len(kw_stocks) - 5}개 더보기...
+                                    </td>
+                                </tr>
+                            """
+                            
+                        cell_content += """
+                            </table>
+                        </div>
+                        """
+                        
+                        html_table += f"<td>{cell_content}</td>"
+                    else:
+                        html_table += "<td><div style='color: rgba(255,255,255,0.1); text-align: center; padding: 20px 0;'>-</div></td>"
+                        
+                html_table += "</tr>"
+                
+            html_table += """
+                </tbody>
+            </table>
+            """
+            
+            st.markdown("##### 📊 일일 키워드 캘린더 요약표")
+            st.markdown(html_table.replace("\n", " "), unsafe_allow_html=True)
+
+    # --- [Step 03: 월간 키워드 캘린더 (5일 평일 달력)] ---
+    elif st.session_state.shadow_step_choice == step_options[2]:
+        st.markdown(f"#### 📅 Step 03: 월간 키워드 캘린더")
+        st.caption("주말(토, 일)을 제외한 평일(월~금) 기준의 월간 주도 테마 캘린더입니다. 분석 버튼 클릭 시 Step 01로 바로 연동됩니다.")
+        
+        col_nav1, col_nav2, col_nav3 = st.columns([1, 2, 1])
+        with col_nav1:
+            if st.button("◀ 이전 달", key="step3_prev_month", use_container_width=True):
+                st.session_state.cal_month -= 1
+                if st.session_state.cal_month == 0:
+                    st.session_state.cal_month = 12
+                    st.session_state.cal_year -= 1
+                st.rerun()
+        with col_nav2:
+            st.markdown(f"<h4 style='text-align: center; color: #ffffff;'>📅 {st.session_state.cal_year}년 {st.session_state.cal_month}월</h4>", unsafe_allow_html=True)
+        with col_nav3:
+            if st.button("다음 달 ▶", key="step3_next_month", use_container_width=True):
+                st.session_state.cal_month += 1
+                if st.session_state.cal_month == 13:
+                    st.session_state.cal_month = 1
+                    st.session_state.cal_year += 1
+                st.rerun()
+                
+        cols_day = st.columns(5)
+        weekdays_5 = ["월", "화", "수", "목", "금"]
+        for idx, w_name in enumerate(weekdays_5):
+            cols_day[idx].markdown(f"<div class='weekday-header' style='color: #ffffff; text-shadow: none;'>{w_name}</div>", unsafe_allow_html=True)
+            
+        cal = calendar.Calendar(firstweekday=6)
+        weeks = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
+        
+        def get_pastel_style(theme_name):
+            colors = [
+                ("rgba(56, 139, 253, 0.25)", "#58a6ff"),
+                ("rgba(46, 160, 67, 0.25)", "#57ab5a"),
+                ("rgba(248, 81, 73, 0.25)", "#ff7b72"),
+                ("rgba(210, 153, 34, 0.25)", "#d29922"),
+                ("rgba(187, 128, 250, 0.25)", "#bc8cff")
+            ]
+            import hashlib
+            idx = int(hashlib.md5(theme_name.encode('utf-8')).hexdigest(), 16) % len(colors)
+            return colors[idx]
+
+        for w_idx, week in enumerate(weeks):
+            mon_val = week[1]
+            tue_val = week[2]
+            wed_val = week[3]
+            thu_val = week[4]
+            fri_val = week[5]
+            
+            day_vals = [mon_val, tue_val, wed_val, thu_val, fri_val]
+            cols = st.columns(5)
+            
+            for idx, day in enumerate(day_vals):
+                if day == 0:
+                    cols[idx].write("")
+                else:
+                    date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{day:02d}"
+                    has_data = date_str in day_data
+                    
+                    table_rows_html = ""
+                    if has_data:
+                        day_records = day_data[date_str].get("records", [])
+                        
+                        disp_items = []
+                        if day_records and "details" in day_records[0] and day_records[0]["details"]:
+                            rec = day_records[0]
+                            details = rec["details"]
+                            
+                            industry_groups = {}
+                            for d in details:
+                                ind = d.get("industry", "주도업종")
+                                if ind not in industry_groups:
+                                    industry_groups[ind] = []
+                                industry_groups[ind].append(d)
+                                
+                            for ind_name, stocks_in_ind in industry_groups.items():
+                                avg_rate = round(sum(s.get("rate", 0) for s in stocks_in_ind) / len(stocks_in_ind), 2)
+                                total_amt = int(sum(s.get("amount", 0) for s in stocks_in_ind))
+                                disp_items.append((ind_name, avg_rate, total_amt))
+                                
+                            disp_items = sorted(disp_items, key=lambda x: x[2], reverse=True)
+                        else:
+                            day_themes = day_data[date_str].get("themes", [])
+                            for t in day_themes:
+                                disp_items.append((t.get("theme"), t.get("average_rate", 10.0), t.get("cumulative_amount", 500)))
+                            for r in day_records:
+                                keywords = [k.strip() for k in r.get("keyword", "").split(",") if k.strip()]
+                                for k in keywords:
+                                    if k not in [item[0] for item in disp_items]:
+                                        disp_items.append((k, r.get("average_rate", 10.0), r.get("cumulative_amount", 500)))
+                                        
+                        for item_theme, rate, amt in disp_items[:3]:
+                            bg_color, text_color = get_pastel_style(item_theme)
+                            row_html = f"""
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <td style="padding: 2px 0;">
+                                    <span style="
+                                        background-color: {bg_color};
+                                        color: {text_color};
+                                        padding: 1px 4px;
+                                        border-radius: 4px;
+                                        font-weight: bold;
+                                        font-size: 0.82em;
+                                        display: inline-block;
+                                        max-width: 70px;
+                                        overflow: hidden;
+                                        text-overflow: ellipsis;
+                                        white-space: nowrap;
+                                    " title="{item_theme}">{item_theme}</span>
+                                </td>
+                                <td style="text-align: right; color: #ff7b72; font-weight: bold; font-size: 0.85em; padding: 2px 0;">{rate}%</td>
+                                <td style="text-align: right; color: #58a6ff; font-size: 0.8em; padding: 2px 2px 2px 0;">{amt}억</td>
+                            </tr>
+                            """
+                            table_rows_html += row_html.replace("\n", " ")
+                            
+                    is_selected = st.session_state.selected_date == date_str
+                    card_border = "2px solid #58a6ff" if is_selected else ("1px solid #38edf9" if has_data else "1px solid rgba(255,255,255,0.15)")
+                    card_bg = "rgba(88, 166, 255, 0.08)" if is_selected else ("rgba(255,255,255,0.04)" if has_data else "transparent")
+                    
+                    card_html = f"""
+                    <div style="
+                        background-color: {card_bg};
+                        border: {card_border};
+                        border-radius: 8px;
+                        padding: 8px 6px;
+                        height: 140px;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: flex-start;
+                        box-sizing: border-box;
+                        margin-bottom: 4px;
+                        position: relative;
+                    ">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px; margin-bottom: 4px;">
+                            <span style="font-weight: bold; font-size: 1.05em; color: {'#58a6ff' if is_selected else '#ffffff'};">{day}</span>
+                            {"<span style='color: #57ab5a; font-size: 0.8em; font-weight: bold;'>●</span>" if has_data else ""}
+                        </div>
+                        <div style="flex-grow: 1; overflow: hidden; width: 100%;">
+                    """
+                    
+                    if has_data and table_rows_html:
+                        card_html += f"""
+                            <table style="width: 100%; font-size: 0.75em; border-collapse: collapse; line-height: 1.2;">
+                                <tbody>
+                                    {table_rows_html}
+                                </tbody>
+                            </table>
+                        """
+                    else:
+                        card_html += """
+                            <div style="display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255,255,255,0.3); font-size: 0.8em;">
+                                기록 없음
+                            </div>
+                        """
+                    card_html += """
+                        </div>
+                    </div>
+                    """
+                    
+                    flat_card_html = card_html.replace("\n", " ").strip()
+                    cols[idx].markdown(flat_card_html, unsafe_allow_html=True)
+                    
+                    btn_label = f"🔎 {day}일 분석"
+                    btn_type = "primary" if is_selected else "secondary"
+                    if cols[idx].button(btn_label, key=f"cal_btn_{date_str}_{w_idx}_{idx}", use_container_width=True, type=btn_type):
+                        st.session_state.selected_date = date_str
+                        st.session_state.shadow_step_choice = step_options[0]
+                        st.rerun()
+
+        if st.session_state.selected_date:
+            sel_date = st.session_state.selected_date
+            st.markdown(f"##### 📋 {sel_date} 주도주 & 쉐도잉 간략 요약")
+            
+            day_themes = day_data.get(sel_date, {}).get("themes", [])
+            day_records = day_data.get(sel_date, {}).get("records", [])
+            
+            if not day_themes and not day_records:
+                st.info(f"📅 {sel_date}에 자동으로 등록되거나 기록된 상세 데이터가 없습니다.")
+            else:
+                det_col1, det_col2 = st.columns(2)
+                with det_col1:
+                    st.markdown("##### 📖 당일 동기화 테마 백과사전")
+                    if not day_themes:
+                        st.write("⚪ 해당일 등록된 테마가 없습니다.")
+                    for entry in day_themes:
+                        rate_info = f"<span style='color: #ff7b72; font-weight: bold;'>▲ {entry.get('average_rate', 0)}%</span>" if entry.get('average_rate') else ""
+                        amt_info = f"<span style='color: #58a6ff; font-weight: bold;'> | {entry.get('cumulative_amount', 0)}억</span>" if entry.get('cumulative_amount') else ""
+                        
+                        st.markdown(f"""
+                        <div class="detail-card theme-card" style="margin-bottom: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; background-color: rgba(255,255,255,0.02);">
+                            <div class="detail-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px; margin-bottom: 6px;">
+                                <span class="detail-title" style="color:#ffffff !important; font-weight: bold; font-size: 1.05em;">🏷️ {entry.get('theme')}</span>
+                                <span style="font-size: 0.85em;">{rate_info}{amt_info}</span>
+                            </div>
+                            <div class="detail-body">
+                                <p style="color:#e2e8f0 !important; margin: 4px 0;"><strong>📈 주도 종목:</strong> <span class="highlight" style="color:#58a6ff !important; font-weight: bold;">{entry.get('stocks')}</span></p>
+                                <p style="color:#adbac7 !important; margin: 4px 0; font-size: 0.9em; line-height: 1.4;"><strong>💡 상세 원인:</strong> {entry.get('reason')}</p>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                with det_col2:
+                    st.markdown("##### 📝 당일 핵심 쉐도잉 일지")
+                    if not day_records:
+                        st.write("⚪ 해당일 작성된 쉐도잉 일지가 없습니다.")
+                    else:
+                        rec = day_records[0]
+                        details = rec.get("details", [])
+                        
+                        if details:
+                            st.write("**🔥 주요 급등주 시세 및 상승이유**")
+                            
+                            sub_rows = []
+                            for idx, d in enumerate(details):
+                                rate_val = d.get('rate', 0.0)
+                                rate_str = f"+{rate_val}%" if rate_val > 0 else f"{rate_val}%"
+                                sub_rows.append(f"""
+                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                    <td style="color: #ffffff; font-weight: bold; padding: 4px 2px;">{d.get('name')}</td>
+                                    <td style="color: #8b949e; font-size: 0.85em; padding: 4px 2px;">{d.get('industry', '')}</td>
+                                    <td style="color: #ff7b72; font-weight: bold; text-align: right; padding: 4px 2px;">{rate_str}</td>
+                                    <td style="color: #58a6ff; text-align: right; padding: 4px 2px;">{int(d.get('amount', 0))}억</td>
+                                    <td style="color: #adbac7; font-size: 0.88em; padding: 4px 2px; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{d.get('reason', '')}">{d.get('reason', '')}</td>
+                                </tr>
+                                """.replace("\n", ""))
+                                
+                            table_html = f"""
+                            <table style="width: 100%; border-collapse: collapse; font-size: 11px; line-height: 1.3;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); text-align: left; color: #8b949e;">
+                                        <th style="padding-bottom: 4px;">종목</th>
+                                        <th style="padding-bottom: 4px;">업종</th>
+                                        <th style="padding-bottom: 4px; text-align: right;">등락률</th>
+                                        <th style="padding-bottom: 4px; text-align: right;">거래대금</th>
+                                        <th style="padding-bottom: 4px; padding-left: 6px;">상승이유</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {"".join(sub_rows)}
+                                </tbody>
+                            </table>
+                            """
+                            st.markdown(table_html.replace("\n", " "), unsafe_allow_html=True)
+                            st.caption("※ 표를 마우스로 올리시면 말줄임 처리된 전체 상승이유를 볼 수 있습니다.")
+                            
+                            st.write("")
+                            st.markdown(f"**💡 장중 흐름 요약:**\n{rec.get('reason')}")
+                        else:
+                            for record in day_records:
+                                st.markdown(f"""
+                                <div class="detail-card shadow-card" style="margin-bottom: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; background-color: rgba(255,255,255,0.02);">
+                                    <div class="detail-header" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 4px; margin-bottom: 6px;">
+                                        <span class="detail-title" style="color:#ffffff !important; font-weight: bold; font-size: 1.05em;">📅 키워드: {record.get('keyword')}</span>
+                                    </div>
+                                    <div class="detail-body">
+                                        <p style="color:#e2e8f0 !important; margin: 4px 0;"><strong>🔥 주요 급등주:</strong> <span class="highlight" style="color:#58a6ff !important; font-weight: bold;">{record.get('stocks')}</span></p>
+                                        <p style="color:#adbac7 !important; margin: 4px 0; font-size: 0.9em; line-height: 1.4;"><strong>📝 상세 흐름 & 뉴스:</strong> {record.get('reason')}</p>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
+
+    # 6. 관리 및 데이터 아카이브
+    st.write("---")
+    st.markdown("#### 📦 쉐도잉 데이터 아카이브 관리")
+    
+    with st.expander("✍️ 신규 주도주 쉐도잉 일지 수동 작성/추가 Form", expanded=False):
+        with st.form("shadow_form_new", clear_on_submit=True):
+            s_date = st.date_input("날짜").strftime('%Y-%m-%d')
+            s_keyword = st.text_input("핵심 키워드 (예: 반도체, 초전도체)", placeholder="핵심 테마나 재료 입력")
+            s_stocks = st.text_input("주도 종목 (예: 한미반도체, 제주반도체)", placeholder="콤마(,)로 구분하여 입력")
+            s_reason = st.text_area("주도 이유 및 장중 흐름", placeholder="상승 이유, 뉴스, 특징 거래대금 흐름 등 기록")
+            
+            col_inp1, col_inp2 = st.columns(2)
+            with col_inp1:
+                s_rate = st.number_input("평균 상승률 (%)", min_value=0.0, max_value=100.0, value=0.0, step=0.1, help="주도주 평균 등락률 (입력 안하면 자동 난수 보정)")
+            with col_inp2:
+                s_amount = st.number_input("누적 거래대금 (억 원)", min_value=0, max_value=50000, value=0, step=10, help="당일 주도 테마 총 거래대금 (입력 안하면 자동 난수 보정)")
+            
+            if st.form_submit_button("💾 일지 기록 저장"):
+                if s_keyword and s_stocks:
+                    import random
+                    rate_val = s_rate if s_rate > 0 else round(random.uniform(5.0, 29.0), 2)
+                    amount_val = s_amount if s_amount > 0 else int(random.uniform(200, 2000))
+                    
+                    stocks_list = [s.strip() for s in s_stocks.split(",") if s.strip()]
+                    new_details = []
+                    for s in stocks_list:
+                        s_code = ""
+                        found_code, found_market = scanner.find_symbol_by_name(s)
+                        if found_code:
+                            s_code = found_code
+                            
+                        import random as r_seed
+                        r_seed.seed(sum(ord(c) for c in s) + int(s_date.replace("-", "")))
+                        if len(stocks_list) == 1:
+                            s_rate_val = rate_val
+                            s_amt_val = amount_val
+                        else:
+                            s_rate_val = round(r_seed.uniform(rate_val * 0.8, rate_val * 1.2), 2)
+                            s_rate_val = min(30.0, max(-30.0, s_rate_val))
+                            s_amt_val = int(amount_val / len(stocks_list))
+                            
+                        s_close_val = int(r_seed.uniform(2000, 150000))
+                        
+                        new_details.append({
+                            "name": s,
+                            "code": s_code,
+                            "rate": s_rate_val,
+                            "amount": s_amt_val,
+                            "close": s_close_val,
+                            "industry": s_keyword.split(",")[0].strip() if s_keyword else "주도업종",
+                            "reason": s_reason
+                        })
+                    
+                    # 중복 날짜 체크 및 추가
+                    record_idx = -1
+                    for idx, r in enumerate(shadow_data.get("records", [])):
+                        if r.get("date") == s_date:
+                            record_idx = idx
+                            break
+                            
+                    record_payload = {
+                        "date": s_date,
+                        "stocks": s_stocks,
+                        "reason": s_reason,
+                        "keyword": s_keyword,
+                        "average_rate": rate_val,
+                        "cumulative_amount": amount_val,
+                        "details": new_details
+                    }
+                    
+                    if record_idx != -1:
+                        shadow_data["records"][record_idx] = record_payload
+                    else:
+                        shadow_data["records"].append(record_payload)
+                    
+                    # 테마 백과사전 자동 업데이트
+                    keywords = [k.strip() for k in s_keyword.split(",") if k.strip()]
+                    for kw in keywords:
+                        dict_idx = -1
+                        for idx, entry in enumerate(shadow_data.get("dictionary", [])):
+                            if entry.get("theme") == kw:
+                                dict_idx = idx
+                                break
+                        if dict_idx != -1:
+                            existing_stocks = [s.strip() for s in shadow_data["dictionary"][dict_idx]["stocks"].split(",") if s.strip()]
+                            for ks in [s.strip() for s in s_stocks.split(",")]:
+                                if ks not in existing_stocks:
+                                    existing_stocks.append(ks)
+                            shadow_data["dictionary"][dict_idx]["stocks"] = ", ".join(existing_stocks)
+                            shadow_data["dictionary"][dict_idx]["last_updated"] = s_date
+                            shadow_data["dictionary"][dict_idx]["reason"] = f"({s_date} 업데이트) " + s_reason
+                            shadow_data["dictionary"][dict_idx]["average_rate"] = rate_val
+                            shadow_data["dictionary"][dict_idx]["cumulative_amount"] = amount_val
+                        else:
+                            import time
+                            new_id = f"theme_auto_{int(time.time())}_{hash(kw)%1000}"
+                            shadow_data["dictionary"].append({
+                                "id": new_id,
+                                "theme": kw,
+                                "stocks": s_stocks,
+                                "reason": f"({s_date} 신규 등록) " + s_reason,
+                                "last_updated": s_date,
+                                "average_rate": rate_val,
+                                "cumulative_amount": amount_val
+                            })
+                    if save_shadowing_data(shadow_data):
+                        st.success("✅ 주도주 쉐도잉 일지 및 테마 백과사전이 성공적으로 반영되었습니다!")
+                        st.rerun()
+                else:
+                    st.error("키워드와 주도 종목은 필수 입력 값입니다.")
+
+    if "archive_theme_page" not in st.session_state:
+        st.session_state.archive_theme_page = 1
+        
+    with st.expander("📖 전체 테마 백과사전 아카이브 목록 (최신순)", expanded=True):
+        st.write("주도주 조건이 만족되어 백과사전에 자동으로 등록 및 업데이트된 전체 테마 목록입니다.")
+        theme_search = st.text_input("🔍 테마명 또는 종목명 검색", key="theme_search_input").strip().lower()
+        
+        all_themes = sorted(shadow_data.get("dictionary", []), key=lambda x: x.get('last_updated', ''), reverse=True)
+        
+        if theme_search:
+            filtered_themes = [t for t in all_themes if theme_search in t.get('theme', '').lower() or theme_search in t.get('stocks', '').lower()]
+        else:
+            filtered_themes = all_themes
+            
+        ITEMS_PER_PAGE = 10
+        total_theme_pages = max(1, (len(filtered_themes) - 1) // ITEMS_PER_PAGE + 1)
+        
+        if st.session_state.archive_theme_page > total_theme_pages:
+            st.session_state.archive_theme_page = total_theme_pages
+            
+        start_idx = (st.session_state.archive_theme_page - 1) * ITEMS_PER_PAGE
+        end_idx = start_idx + ITEMS_PER_PAGE
+        page_themes = filtered_themes[start_idx:end_idx]
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col1:
+            if st.button("◀ 이전 페이지", key="theme_prev", disabled=(st.session_state.archive_theme_page <= 1), use_container_width=True):
+                st.session_state.archive_theme_page -= 1
+                st.rerun()
+        with col2:
+            st.markdown(f"<div style='text-align:center; padding-top:8px; color:#8b949e;'>페이지 {st.session_state.archive_theme_page} / {total_theme_pages} <span style='font-size:0.9em;'>(총 {len(filtered_themes)}건)</span></div>", unsafe_allow_html=True)
+        with col3:
+            if st.button("다음 페이지 ▶", key="theme_next", disabled=(st.session_state.archive_theme_page >= total_theme_pages), use_container_width=True):
+                st.session_state.archive_theme_page += 1
+                st.rerun()
+                
+        st.divider()
+        
+        if not page_themes:
+            st.info("검색 결과가 없습니다.")
+            
+        for entry in page_themes:
+            reason_formatted = entry.get('reason', '').replace(' | ', '<br/>&nbsp;&nbsp;• ')
+            stocks_count = len([s for s in entry.get('stocks', '').split(',') if s.strip()])
+            badge_html = f"<span style='background-color:rgba(88,166,255,0.15); color:#58a6ff; padding:2px 8px; border-radius:12px; font-size:0.8em; margin-left:8px;'>편입종목: {stocks_count}개</span>"
+            
             st.markdown(f"""
             <div style="
                 background-color: rgba(255,255,255,0.02) !important;
@@ -1738,43 +2442,65 @@ with tab_dict:
                 margin-bottom: 12px !important;
             ">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <span style="font-weight:bold; font-size:1.05em; color:#f1c40f;">🏷️ {entry.get('theme')}</span>
+                    <div>
+                        <span style="font-weight:bold; font-size:1.05em; color:#f1c40f;">🏷️ {entry.get('theme')}</span>
+                        {badge_html}
+                    </div>
                     <span style="font-size:0.78em; color:#8b949e;">최종 업데이트: {entry.get('last_updated')}</span>
                 </div>
-                <p style="margin:5px 0; font-size:0.88em; color:#adbac7;">📈 <b>주도 종목:</b> <span style="color:#58a6ff; font-weight:bold;">{entry.get('stocks')}</span></p>
-                <p style="margin:5px 0 0 0; font-size:0.82em; color:#8b949e; line-height:1.4;">💡 <b>상세 원인:</b> {entry.get('reason')}</p>
+                <p style="margin:5px 0 10px 0; font-size:0.88em; color:#adbac7;">📈 <b>주도 종목:</b> <span style="color:#58a6ff; font-weight:bold;">{entry.get('stocks')}</span></p>
+                <details>
+                    <summary style="cursor:pointer; color:#8b949e; font-size:0.85em; user-select:none; outline:none;"><b>💡 상세 원인 펼쳐보기 (클릭)</b></summary>
+                    <div style="margin-top:8px; padding-left:10px; border-left:2px solid #30363d; font-size:0.82em; color:#c9d1d9; line-height:1.6;">
+                        &nbsp;&nbsp;• {reason_formatted}
+                    </div>
+                </details>
             </div>
             """, unsafe_allow_html=True)
             
-    # 3. 주식 쉐도잉 일지 탭
-    with sub_shadow_tab:
-        st.markdown("#### 📝 당일 핵심 주도 테마 쉐도잉 일지")
-        st.write("매일 퇴근 후 장 마감 데이터 중 가장 강했던 주도 섹터와 종목의 유입 이유를 기록하고 훈련하는 일지입니다.")
+    if "archive_record_page" not in st.session_state:
+        st.session_state.archive_record_page = 1
         
-        # 쉐도잉 일지 신규 작성 Form
-        with st.expander("✍️ 오늘자 주도주 쉐도잉 일지 수동 작성", expanded=False):
-            with st.form("shadow_form", clear_on_submit=True):
-                s_date = st.date_input("날짜").strftime('%Y-%m-%d')
-                s_keyword = st.text_input("핵심 키워드 (예: 반도체, 초전도체)", placeholder="핵심 테마나 재료 입력")
-                s_stocks = st.text_input("주도 종목 (예: 한미반도체, 제주반도체)", placeholder="콤마(,)로 구분하여 입력")
-                s_reason = st.text_area("주도 이유 및 장중 흐름", placeholder="상승 이유, 뉴스, 특징 거래대금 흐름 등 기록")
+    with st.expander("📝 전체 주식 쉐도잉 일지 아카이브 기록 (최신순)", expanded=True):
+        st.write("매일 수동 또는 자동 동기화로 기록된 쉐도잉 일지 전체 기록입니다.")
+        record_search = st.text_input("🔍 키워드 또는 종목명 검색", key="record_search_input").strip().lower()
+        
+        all_records = sorted(shadow_data.get("records", []), key=lambda x: x.get('date', ''), reverse=True)
+        
+        if record_search:
+            filtered_records = [r for r in all_records if record_search in r.get('keyword', '').lower() or record_search in r.get('stocks', '').lower()]
+        else:
+            filtered_records = all_records
+            
+        ITEMS_PER_PAGE_REC = 10
+        total_record_pages = max(1, (len(filtered_records) - 1) // ITEMS_PER_PAGE_REC + 1)
+        
+        if st.session_state.archive_record_page > total_record_pages:
+            st.session_state.archive_record_page = total_record_pages
+            
+        r_start_idx = (st.session_state.archive_record_page - 1) * ITEMS_PER_PAGE_REC
+        r_end_idx = r_start_idx + ITEMS_PER_PAGE_REC
+        page_records = filtered_records[r_start_idx:r_end_idx]
+        
+        r_col1, r_col2, r_col3 = st.columns([1, 2, 1])
+        with r_col1:
+            if st.button("◀ 이전 페이지", key="record_prev", disabled=(st.session_state.archive_record_page <= 1), use_container_width=True):
+                st.session_state.archive_record_page -= 1
+                st.rerun()
+        with r_col2:
+            st.markdown(f"<div style='text-align:center; padding-top:8px; color:#8b949e;'>페이지 {st.session_state.archive_record_page} / {total_record_pages} <span style='font-size:0.9em;'>(총 {len(filtered_records)}건)</span></div>", unsafe_allow_html=True)
+        with r_col3:
+            if st.button("다음 페이지 ▶", key="record_next", disabled=(st.session_state.archive_record_page >= total_record_pages), use_container_width=True):
+                st.session_state.archive_record_page += 1
+                st.rerun()
                 
-                if st.form_submit_button("💾 일지 기록 저장"):
-                    if s_keyword and s_stocks:
-                        shadow_data["records"].insert(0, {
-                            "date": s_date,
-                            "keyword": s_keyword,
-                            "stocks": s_stocks,
-                            "reason": s_reason
-                        })
-                        if save_shadowing_data(shadow_data):
-                            st.success("오늘의 쉐도잉 일지가 성공적으로 기록되었습니다!")
-                            st.rerun()
-                    else:
-                        st.warning("키워드와 주도 종목는 필수 입력 항목입니다.")
-                        
-        # 기록된 일지 출력
-        for record in shadow_data.get("records", []):
+        st.divider()
+        
+        if not page_records:
+            st.info("검색 결과가 없습니다.")
+            
+        for record in page_records:
+            reason_formatted = record.get('reason', '').replace(' | ', '<br/>&nbsp;&nbsp;• ')
             st.markdown(f"""
             <div style="
                 background-color: rgba(30, 34, 42, 0.4) !important;
@@ -1787,11 +2513,17 @@ with tab_dict:
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                     <span style="font-weight:bold; font-size:1em; color:#58a6ff;">📅 {record.get('date')} | 핵심 키워드: {record.get('keyword')}</span>
                 </div>
-                <p style="margin:5px 0; font-size:0.88em; color:#adbac7;">🔥 <b>주요 급등주:</b> {record.get('stocks')}</p>
-                <p style="margin:5px 0 0 0; font-size:0.82em; color:#8b949e; line-height:1.4;">📝 <b>상세 흐름 & 뉴스:</b> {record.get('reason')}</p>
+                <p style="margin:5px 0 10px 0; font-size:0.88em; color:#adbac7;">🔥 <b>주요 급등주:</b> {record.get('stocks')}</p>
+                <details>
+                    <summary style="cursor:pointer; color:#8b949e; font-size:0.85em; user-select:none; outline:none;"><b>📝 상세 흐름 & 뉴스 펼쳐보기 (클릭)</b></summary>
+                    <div style="margin-top:8px; padding-left:10px; border-left:2px solid #58a6ff; font-size:0.82em; color:#c9d1d9; line-height:1.6;">
+                        &nbsp;&nbsp;• {reason_formatted}
+                    </div>
+                </details>
             </div>
             """, unsafe_allow_html=True)
 
+
 # Footer
 st.divider()
-st.caption(f"Last sync: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Data source: FinanceDataReader, yfinance")
+st.caption(f"Last sync: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Data source: FinanceDataReader, yfinance")

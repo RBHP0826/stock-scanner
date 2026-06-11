@@ -1,0 +1,133 @@
+2026-06-11 11:37:46,462 - StockDashboard - ERROR - Error analyzing 후성: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%ED%9B%84%EC%84%B1?period1=1749567600&period2=1781145466&interval=1d&includeAdjustedClose=true
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 181, in analyze_stock
+    df = self.get_historical_data(symbol, market, 365)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 170, in get_historical_data
+    elif market in ['US', '미국 (US)']: df = fdr.DataReader(symbol, start_date)
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\data.py", line 108, in DataReader
+    return YahooDailyReader(codes, start, end).read()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 61, in read
+    return _yahoo_data_reader(self.symbol, self.exchange, self.start, self.end)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 38, in _yahoo_data_reader
+    r.raise_for_status()
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\requests\models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%ED%9B%84%EC%84%B1?period1=1749567600&period2=1781145466&interval=1d&includeAdjustedClose=true
+2026-06-11 11:46:02,276 - StockDashboard - ERROR - Error analyzing 삼성물산: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%EC%82%BC%EC%84%B1%EB%AC%BC%EC%82%B0?period1=1749567600&period2=1781145961&interval=1d&includeAdjustedClose=true
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 181, in analyze_stock
+    df = self.get_historical_data(symbol, market, 365)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 170, in get_historical_data
+    elif market in ['US', '미국 (US)']: df = fdr.DataReader(symbol, start_date)
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\data.py", line 108, in DataReader
+    return YahooDailyReader(codes, start, end).read()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 61, in read
+    return _yahoo_data_reader(self.symbol, self.exchange, self.start, self.end)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 38, in _yahoo_data_reader
+    r.raise_for_status()
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\requests\models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%EC%82%BC%EC%84%B1%EB%AC%BC%EC%82%B0?period1=1749567600&period2=1781145961&interval=1d&includeAdjustedClose=true
+2026-06-11 11:49:41,848 - StockDashboard - ERROR - Error analyzing 삼성물산: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%EC%82%BC%EC%84%B1%EB%AC%BC%EC%82%B0?period1=1749567600&period2=1781146181&interval=1d&includeAdjustedClose=true
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 181, in analyze_stock
+    df = self.get_historical_data(symbol, market, 365)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 170, in get_historical_data
+    elif market in ['US', '미국 (US)']: df = fdr.DataReader(symbol, start_date)
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\data.py", line 108, in DataReader
+    return YahooDailyReader(codes, start, end).read()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 61, in read
+    return _yahoo_data_reader(self.symbol, self.exchange, self.start, self.end)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 38, in _yahoo_data_reader
+    r.raise_for_status()
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\requests\models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%EC%82%BC%EC%84%B1%EB%AC%BC%EC%82%B0?period1=1749567600&period2=1781146181&interval=1d&includeAdjustedClose=true
+2026-06-11 11:52:59,526 - StockDashboard - ERROR - Error analyzing 삼성물산: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%EC%82%BC%EC%84%B1%EB%AC%BC%EC%82%B0?period1=1749567600&period2=1781146379&interval=1d&includeAdjustedClose=true
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 181, in analyze_stock
+    df = self.get_historical_data(symbol, market, 365)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 170, in get_historical_data
+    elif market in ['US', '미국 (US)']: df = fdr.DataReader(symbol, start_date)
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\data.py", line 108, in DataReader
+    return YahooDailyReader(codes, start, end).read()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 61, in read
+    return _yahoo_data_reader(self.symbol, self.exchange, self.start, self.end)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 38, in _yahoo_data_reader
+    r.raise_for_status()
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\requests\models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%EC%82%BC%EC%84%B1%EB%AC%BC%EC%82%B0?period1=1749567600&period2=1781146379&interval=1d&includeAdjustedClose=true
+2026-06-11 12:00:00,878 - StockDashboard - ERROR - Error analyzing 화신정공: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%ED%99%94%EC%8B%A0%EC%A0%95%EA%B3%B5?period1=1749567600&period2=1781146800&interval=1d&includeAdjustedClose=true
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 181, in analyze_stock
+    df = self.get_historical_data(symbol, market, 365)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 170, in get_historical_data
+    elif market in ['US', '미국 (US)']: df = fdr.DataReader(symbol, start_date)
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\data.py", line 108, in DataReader
+    return YahooDailyReader(codes, start, end).read()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 61, in read
+    return _yahoo_data_reader(self.symbol, self.exchange, self.start, self.end)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 38, in _yahoo_data_reader
+    r.raise_for_status()
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\requests\models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%ED%99%94%EC%8B%A0%EC%A0%95%EA%B3%B5?period1=1749567600&period2=1781146800&interval=1d&includeAdjustedClose=true
+2026-06-11 12:00:38,503 - StockDashboard - ERROR - Error analyzing 라이콤: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%EB%9D%BC%EC%9D%B4%EC%BD%A4?period1=1749567600&period2=1781146838&interval=1d&includeAdjustedClose=true
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 181, in analyze_stock
+    df = self.get_historical_data(symbol, market, 365)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 170, in get_historical_data
+    elif market in ['US', '미국 (US)']: df = fdr.DataReader(symbol, start_date)
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\data.py", line 108, in DataReader
+    return YahooDailyReader(codes, start, end).read()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 61, in read
+    return _yahoo_data_reader(self.symbol, self.exchange, self.start, self.end)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 38, in _yahoo_data_reader
+    r.raise_for_status()
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\requests\models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%EB%9D%BC%EC%9D%B4%EC%BD%A4?period1=1749567600&period2=1781146838&interval=1d&includeAdjustedClose=true
+2026-06-11 12:02:12,075 - StockDashboard - ERROR - Error analyzing 푸드나무: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%ED%91%B8%EB%93%9C%EB%82%98%EB%AC%B4?period1=1749567600&period2=1781146931&interval=1d&includeAdjustedClose=true
+Traceback (most recent call last):
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 181, in analyze_stock
+    df = self.get_historical_data(symbol, market, 365)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\Desktop\안티그래비티\stock_scanner.py", line 170, in get_historical_data
+    elif market in ['US', '미국 (US)']: df = fdr.DataReader(symbol, start_date)
+                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\data.py", line 108, in DataReader
+    return YahooDailyReader(codes, start, end).read()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 61, in read
+    return _yahoo_data_reader(self.symbol, self.exchange, self.start, self.end)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\FinanceDataReader\yahoo\data.py", line 38, in _yahoo_data_reader
+    r.raise_for_status()
+  File "C:\Users\user\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\requests\models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%ED%91%B8%EB%93%9C%EB%82%98%EB%AC%B4?period1=1749567600&period2=1781146931&interval=1d&includeAdjustedClose=true
