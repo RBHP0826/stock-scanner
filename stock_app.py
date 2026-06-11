@@ -762,21 +762,46 @@ def sync_realtime_shadowing_data(scanner=None):
     import FinanceDataReader as fdr
     import pandas as pd
     from utils.news_fetcher import fetch_latest_news_reason
+    import os
     
     try:
         today_str = datetime.datetime.now().strftime("%Y-%m-%d")
         
         # 1. KRX 전체 종목 목록 로드
-        df_krx = fdr.StockListing('KRX')
-        if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
+        if scanner is None:
+            from stock_scanner import StockScanner
+            scanner = StockScanner()
+        
+        df_krx = scanner.get_krx_symbols()
+        if df_krx is not None and 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
             df_krx['Code'] = df_krx['Symbol']
             
         # 2. KRX-DESC 로드해서 업종(Sector, Industry) 병합
+        df_desc = None
         try:
             df_desc = fdr.StockListing('KRX-DESC')
+            if df_desc is not None and not df_desc.empty:
+                # Save cache
+                try:
+                    cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "krx_desc_cache.json")
+                    df_desc[['Code', 'Sector', 'Industry']].to_json(cache_path, orient='records', force_ascii=False, indent=2)
+                except Exception as cache_err:
+                    pass
+        except Exception as e:
+            # Try to load from local cache
+            try:
+                cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "krx_desc_cache.json")
+                if os.path.exists(cache_path):
+                    df_desc = pd.read_json(cache_path, encoding='utf-8')
+                    if df_desc is not None and not df_desc.empty:
+                        df_desc['Code'] = df_desc['Code'].astype(str).str.zfill(6)
+            except Exception as cache_load_err:
+                df_desc = None
+
+        if df_desc is not None and not df_desc.empty:
             df_desc = df_desc[['Code', 'Sector', 'Industry']]
             df_merged = pd.merge(df_krx, df_desc, on='Code', how='left')
-        except Exception as e:
+        else:
             df_merged = df_krx.copy()
             df_merged['Sector'] = '테마미분류'
             df_merged['Industry'] = '테마미분류'

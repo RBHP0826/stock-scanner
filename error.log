@@ -204,3 +204,6 @@ Traceback (most recent call last):
   File "C:\Users\zxc02\AppData\Local\Programs\Python\Python314\Lib\site-packages\requests\models.py", line 1028, in raise_for_status
     raise HTTPError(http_error_msg, response=self)
 requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://query2.finance.yahoo.com/v8/finance/chart/%EB%B9%84%ED%8A%B8%EC%BD%94%EC%9D%B8?period1=1749567600&period2=1781181984&interval=1d&includeAdjustedClose=true
+2026-06-12 07:58:06,622 - StockDashboard - ERROR - KRX 캐시 저장 실패: "['Symbol'] not in index"
+2026-06-12 07:58:07,350 - StockDashboard - ERROR - FDR DataReader failed for KR stock 005930: Simulated FinanceDataReader Failure!. Trying yfinance fallback.
+2026-06-12 07:58:22,440 - StockDashboard - ERROR - FDR DataReader failed for KR stock 005930: Simulated FinanceDataReader Failure!. Trying yfinance fallback.

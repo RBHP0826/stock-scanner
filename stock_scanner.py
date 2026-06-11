@@ -1,3 +1,4 @@
+import os
 import FinanceDataReader as fdr
 import yfinance as yf
 import pyupbit
@@ -41,62 +42,197 @@ class StockScanner:
         self.horizontal_levels = []
 
     def get_krx_symbols(self):
+        # 1. Try FinanceDataReader
         try:
             df_krx = fdr.StockListing('KRX')
-            if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
-                df_krx['Code'] = df_krx['Symbol']
-            return df_krx
+            if df_krx is not None and len(df_krx) >= 100:
+                if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
+                    df_krx['Code'] = df_krx['Symbol']
+                elif 'Symbol' not in df_krx.columns and 'Code' in df_krx.columns:
+                    df_krx['Symbol'] = df_krx['Code']
+                # Save cache
+                try:
+                    cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "krx_symbols_cache.json")
+                    columns_to_keep = ['Code', 'Symbol', 'Name', 'Market']
+                    for col in ['Marcap', 'Amount', 'ChagesRatio', 'Close', 'Volume']:
+                        if col in df_krx.columns:
+                            columns_to_keep.append(col)
+                    df_krx[columns_to_keep].to_json(cache_path, orient='records', force_ascii=False, indent=2)
+                except Exception as cache_err:
+                    logger.error(f"KRX 캐시 저장 실패: {cache_err}")
+                return df_krx
         except Exception as e:
             logger.error(f"FinanceDataReader 조회 실패. pykrx 예비 수단 가동: {e}", exc_info=True)
             print(f"FinanceDataReader 조회 실패. pykrx 예비 수단 가동: {e}")
-            try:
-                from pykrx import stock
-                today_dt = datetime.datetime.today()
-                if today_dt.weekday() == 5: today_dt -= datetime.timedelta(days=1)
-                elif today_dt.weekday() == 6: today_dt -= datetime.timedelta(days=2)
-                
-                today = today_dt.strftime("%Y%m%d")
-                kospi = []
-                for i in range(7):
-                    check_date = (today_dt - datetime.timedelta(days=i)).strftime("%Y%m%d")
-                    try:
-                        kospi = stock.get_market_ticker_list(check_date, market="KOSPI")
-                        if kospi:
-                            today = check_date
-                            break
-                    except Exception:
-                        continue
-                
-                kosdaq = stock.get_market_ticker_list(today, market="KOSDAQ")
-                symbols = kospi + kosdaq
-                if not symbols:
-                    raise ValueError("pykrx에서 반환된 티커 리스트가 비어있습니다.")
-                
+            
+        # 2. Try pykrx
+        try:
+            from pykrx import stock
+            today_dt = datetime.datetime.today()
+            if today_dt.weekday() == 5: today_dt -= datetime.timedelta(days=1)
+            elif today_dt.weekday() == 6: today_dt -= datetime.timedelta(days=2)
+            
+            today = today_dt.strftime("%Y%m%d")
+            kospi = []
+            for i in range(7):
+                check_date = (today_dt - datetime.timedelta(days=i)).strftime("%Y%m%d")
+                try:
+                    kospi = stock.get_market_ticker_list(check_date, market="KOSPI")
+                    if kospi:
+                        today = check_date
+                        break
+                except Exception:
+                    continue
+            
+            kosdaq = stock.get_market_ticker_list(today, market="KOSDAQ")
+            symbols = kospi + kosdaq
+            if symbols and len(symbols) >= 100:
                 names = [stock.get_market_ticker_name(s) for s in symbols]
-                return pd.DataFrame({'Code': symbols, 'Symbol': symbols, 'Name': names})
-            except Exception as ex:
-                logger.error(f"pykrx마저 실패: {ex}", exc_info=True)
-                print(f"pykrx마저 실패: {ex}")
-                return pd.DataFrame({
-                    'Code': ['005930', '000660', '035420', '035720', '005380'], 
-                    'Symbol': ['005930', '000660', '035420', '035720', '005380'], 
-                    'Name': ['삼성전자', 'SK하이닉스', 'NAVER', '카카오', '현대차']
-                })
+                markets = ['KOSPI'] * len(kospi) + ['KOSDAQ'] * len(kosdaq)
+                df_pykrx = pd.DataFrame({'Code': symbols, 'Symbol': symbols, 'Name': names, 'Market': markets})
+                # Save cache
+                try:
+                    cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "krx_symbols_cache.json")
+                    df_pykrx.to_json(cache_path, orient='records', force_ascii=False, indent=2)
+                except Exception as cache_err:
+                    logger.error(f"KRX pykrx 캐시 저장 실패: {cache_err}")
+                return df_pykrx
+        except Exception as ex:
+            logger.error(f"pykrx마저 실패: {ex}", exc_info=True)
+            print(f"pykrx마저 실패: {ex}")
+            
+        # 3. Load from JSON cache file
+        try:
+            cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "krx_symbols_cache.json")
+            if os.path.exists(cache_path):
+                df_cache = pd.read_json(cache_path, encoding='utf-8')
+                if df_cache is not None and not df_cache.empty:
+                    if 'Code' not in df_cache.columns and 'Symbol' in df_cache.columns:
+                        df_cache['Code'] = df_cache['Symbol']
+                    # Ensure Code/Symbol are strings and pad KOSPI tickers to 6 chars
+                    code_col = 'Code' if 'Code' in df_cache.columns else 'Symbol'
+                    df_cache[code_col] = df_cache[code_col].astype(str).str.zfill(6)
+                    df_cache['Symbol'] = df_cache['Symbol'].astype(str).str.zfill(6)
+                    print("✅ KRX 종목 정보를 로컬 캐시 파일에서 로드했습니다.")
+                    return df_cache
+        except Exception as cache_load_err:
+            logger.error(f"KRX 캐시 로드 실패: {cache_load_err}", exc_info=True)
+            
+        # 4. Fallback to hardcoded list (Top ~45 major stocks)
+        print("⚠️ 모든 방법 실패로 하드코딩된 대형주 목록을 사용합니다.")
+        fallback_data = [
+            {"Code": "005930", "Symbol": "005930", "Name": "삼성전자", "Market": "KOSPI"},
+            {"Code": "000660", "Symbol": "000660", "Name": "SK하이닉스", "Market": "KOSPI"},
+            {"Code": "373220", "Symbol": "373220", "Name": "LG에너지솔루션", "Market": "KOSPI"},
+            {"Code": "207940", "Symbol": "207940", "Name": "삼성바이오로직스", "Market": "KOSPI"},
+            {"Code": "005380", "Symbol": "005380", "Name": "현대차", "Market": "KOSPI"},
+            {"Code": "005490", "Symbol": "005490", "Name": "POSCO홀딩스", "Market": "KOSPI"},
+            {"Code": "000270", "Symbol": "000270", "Name": "기아", "Market": "KOSPI"},
+            {"Code": "035420", "Symbol": "035420", "Name": "NAVER", "Market": "KOSPI"},
+            {"Code": "006400", "Symbol": "006400", "Name": "삼성SDI", "Market": "KOSPI"},
+            {"Code": "051910", "Symbol": "051910", "Name": "LG화학", "Market": "KOSPI"},
+            {"Code": "005935", "Symbol": "005935", "Name": "삼성전자우", "Market": "KOSPI"},
+            {"Code": "068270", "Symbol": "068270", "Name": "셀트리온", "Market": "KOSPI"},
+            {"Code": "035720", "Symbol": "035720", "Name": "카카오", "Market": "KOSPI"},
+            {"Code": "105560", "Symbol": "105560", "Name": "KB금융", "Market": "KOSPI"},
+            {"Code": "055550", "Symbol": "055550", "Name": "신한지주", "Market": "KOSPI"},
+            {"Code": "012330", "Symbol": "012330", "Name": "현대모비스", "Market": "KOSPI"},
+            {"Code": "028260", "Symbol": "028260", "Name": "삼성물산", "Market": "KOSPI"},
+            {"Code": "000810", "Symbol": "000810", "Name": "삼성화재", "Market": "KOSPI"},
+            {"Code": "015760", "Symbol": "015760", "Name": "한국전력", "Market": "KOSPI"},
+            {"Code": "086790", "Symbol": "086790", "Name": "하나금융지주", "Market": "KOSPI"},
+            {"Code": "047050", "Symbol": "047050", "Name": "포스코퓨처엠", "Market": "KOSPI"},
+            {"Code": "018260", "Symbol": "018260", "Name": "삼성에스디에스", "Market": "KOSPI"},
+            {"Code": "011200", "Symbol": "011200", "Name": "HMM", "Market": "KOSPI"},
+            {"Code": "032830", "Symbol": "032830", "Name": "삼성생명", "Market": "KOSPI"},
+            {"Code": "009150", "Symbol": "009150", "Name": "삼성전기", "Market": "KOSPI"},
+            {"Code": "003550", "Symbol": "003550", "Name": "LG", "Market": "KOSPI"},
+            {"Code": "034020", "Symbol": "034020", "Name": "두산에너빌리티", "Market": "KOSPI"},
+            {"Code": "010950", "Symbol": "010950", "Name": "S-Oil", "Market": "KOSPI"},
+            {"Code": "010130", "Symbol": "010130", "Name": "고려아연", "Market": "KOSPI"},
+            {"Code": "000720", "Symbol": "000720", "Name": "현대건설", "Market": "KOSPI"},
+            {"Code": "247540", "Symbol": "247540", "Name": "에코프로비엠", "Market": "KOSDAQ"},
+            {"Code": "086520", "Symbol": "086520", "Name": "에코프로", "Market": "KOSDAQ"},
+            {"Code": "091990", "Symbol": "091990", "Name": "셀트리온헬스케어", "Market": "KOSDAQ"},
+            {"Code": "066970", "Symbol": "066970", "Name": "엘앤에프", "Market": "KOSDAQ"},
+            {"Code": "293490", "Symbol": "293490", "Name": "카카오게임즈", "Market": "KOSDAQ"},
+            {"Code": "253450", "Symbol": "253450", "Name": "스튜디오드래곤", "Market": "KOSDAQ"},
+            {"Code": "193250", "Symbol": "193250", "Name": "와이지엔터테인먼트", "Market": "KOSDAQ"},
+            {"Code": "035900", "Symbol": "035900", "Name": "JYP Ent.", "Market": "KOSDAQ"},
+            {"Code": "058470", "Symbol": "058470", "Name": "리노공업", "Market": "KOSDAQ"},
+            {"Code": "214150", "Symbol": "214150", "Name": "클래시스", "Market": "KOSDAQ"},
+            {"Code": "036570", "Symbol": "036570", "Name": "엔씨소프트", "Market": "KOSPI"},
+            {"Code": "383220", "Symbol": "383220", "Name": "F&F", "Market": "KOSPI"},
+            {"Code": "271560", "Symbol": "271560", "Name": "오리온", "Market": "KOSPI"},
+            {"Code": "000080", "Symbol": "000080", "Name": "하이트진로", "Market": "KOSPI"},
+            {"Code": "008770", "Symbol": "008770", "Name": "호텔신라", "Market": "KOSPI"},
+        ]
+        return pd.DataFrame(fallback_data)
 
     def get_us_symbols(self):
+        # 1. Try FinanceDataReader
         try:
-            return fdr.StockListing('S&P500')
-        except:
-            return pd.DataFrame({'Symbol': ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'BRK-B', 'UNH', 'JNJ'],
-                                 'Name': ['Apple', 'Microsoft', 'Alphabet', 'Amazon', 'Tesla', 'NVIDIA', 'Meta', 'Berkshire', 'UnitedHealth', 'J&J']})
+            df_us = fdr.StockListing('S&P500')
+            if df_us is not None and len(df_us) >= 10:
+                try:
+                    cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "us_symbols_cache.json")
+                    df_us[['Symbol', 'Name']].to_json(cache_path, orient='records', force_ascii=False, indent=2)
+                except Exception as cache_err:
+                    logger.error(f"US 캐시 저장 실패: {cache_err}")
+                return df_us
+        except Exception as e:
+            logger.error(f"US StockListing 조회 실패: {e}")
+            
+        # 2. Try loading from JSON cache file
+        try:
+            cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "us_symbols_cache.json")
+            if os.path.exists(cache_path):
+                df_cache = pd.read_json(cache_path, encoding='utf-8')
+                if df_cache is not None and not df_cache.empty:
+                    print("✅ US 종목 정보를 로컬 캐시 파일에서 로드했습니다.")
+                    return df_cache
+        except Exception as cache_load_err:
+            logger.error(f"US 캐시 로드 실패: {cache_load_err}", exc_info=True)
+            
+        # 3. Hardcoded fallback
+        print("⚠️ 모든 방법 실패로 하드코딩된 미국 대형주 목록을 사용합니다.")
+        return pd.DataFrame({
+            'Symbol': ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'BRK-B', 'UNH', 'JNJ', 'LLY', 'AVGO', 'JPM', 'V', 'PG'],
+            'Name': ['Apple', 'Microsoft', 'Alphabet', 'Amazon', 'Tesla', 'NVIDIA', 'Meta', 'Berkshire Hathaway', 'UnitedHealth', 'Johnson & Johnson', 'Eli Lilly', 'Broadcom', 'JPMorgan Chase', 'Visa', 'Procter & Gamble']
+        })
 
     def get_coin_symbols(self):
+        # 1. Try pyupbit
         try:
             tickers = pyupbit.get_tickers(fiat="KRW")
-            return pd.DataFrame({'Symbol': tickers, 'Name': [t.split("-")[1] for t in tickers]})
-        except:
-            return pd.DataFrame({'Symbol': ['KRW-BTC', 'KRW-ETH', 'KRW-XRP', 'KRW-SOL', 'KRW-ADA'], 
-                                 'Name': ['BTC', 'ETH', 'XRP', 'SOL', 'ADA']})
+            if tickers:
+                df_coin = pd.DataFrame({'Symbol': tickers, 'Name': [t.split("-")[1] for t in tickers]})
+                try:
+                    cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "coin_symbols_cache.json")
+                    df_coin.to_json(cache_path, orient='records', force_ascii=False, indent=2)
+                except Exception as cache_err:
+                    logger.error(f"COIN 캐시 저장 실패: {cache_err}")
+                return df_coin
+        except Exception as e:
+            logger.error(f"Upbit tickers 조회 실패: {e}")
+            
+        # 2. Try loading from JSON cache file
+        try:
+            cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "coin_symbols_cache.json")
+            if os.path.exists(cache_path):
+                df_cache = pd.read_json(cache_path, encoding='utf-8')
+                if df_cache is not None and not df_cache.empty:
+                    print("✅ COIN 종목 정보를 로컬 캐시 파일에서 로드했습니다.")
+                    return df_cache
+        except Exception as cache_load_err:
+            logger.error(f"COIN 캐시 로드 실패: {cache_load_err}", exc_info=True)
+            
+        # 3. Hardcoded fallback
+        print("⚠️ 모든 방법 실패로 하드코딩된 가상자산 목록을 사용합니다.")
+        return pd.DataFrame({
+            'Symbol': ['KRW-BTC', 'KRW-ETH', 'KRW-XRP', 'KRW-SOL', 'KRW-ADA', 'KRW-DOGE', 'KRW-SHIB', 'KRW-DOT', 'KRW-AVAX', 'KRW-LINK'],
+            'Name': ['BTC', 'ETH', 'XRP', 'SOL', 'ADA', 'DOGE', 'SHIB', 'DOT', 'AVAX', 'LINK']
+        })
 
     def get_symbol_name(self, symbol, market='KR'):
         try:
@@ -167,8 +303,53 @@ class StockScanner:
     def get_historical_data(self, symbol, market='KR', days=365):
         start_date = (datetime.datetime.now() - datetime.timedelta(days=days)).strftime('%Y-%m-%d')
         df = None
-        if market in ['KR', '한국 (KRX)']: df = fdr.DataReader(symbol, start_date)
-        elif market in ['US', '미국 (US)']: df = fdr.DataReader(symbol, start_date)
+        if market in ['KR', '한국 (KRX)']:
+            try:
+                df = fdr.DataReader(symbol, start_date)
+            except Exception as e:
+                logger.error(f"FDR DataReader failed for KR stock {symbol}: {e}. Trying yfinance fallback.")
+                df = None
+                
+            if df is None or df.empty or len(df) < 20:
+                try:
+                    suffix = ".KS"
+                    if hasattr(self, '_krx_list') and self._krx_list is not None and not self._krx_list.empty:
+                        code_col = 'Code' if 'Code' in self._krx_list.columns else 'Symbol'
+                        match = self._krx_list[self._krx_list[code_col] == symbol]
+                        if not match.empty:
+                            m_val = str(match.iloc[0].get('Market', '')).upper()
+                            if 'KOSDAQ' in m_val:
+                                suffix = ".KQ"
+                            elif 'KOSPI' in m_val:
+                                suffix = ".KS"
+                    yf_symbol = f"{symbol}{suffix}"
+                    t = yf.Ticker(yf_symbol)
+                    yf_df = t.history(start=start_date, auto_adjust=False)
+                    if yf_df is not None and not yf_df.empty and len(yf_df) >= 20:
+                        df = yf_df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
+                        df.index = df.index.tz_localize(None)
+                        df['Change'] = df['Close'].pct_change()
+                except Exception as yf_err:
+                    logger.error(f"yfinance fallback failed for KR stock {symbol}: {yf_err}")
+                    
+        elif market in ['US', '미국 (US)']:
+            try:
+                df = fdr.DataReader(symbol, start_date)
+            except Exception as e:
+                logger.error(f"FDR DataReader failed for US stock {symbol}: {e}. Trying yfinance fallback.")
+                df = None
+                
+            if df is None or df.empty or len(df) < 20:
+                try:
+                    t = yf.Ticker(symbol)
+                    yf_df = t.history(start=start_date, auto_adjust=False)
+                    if yf_df is not None and not yf_df.empty and len(yf_df) >= 20:
+                        df = yf_df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
+                        df.index = df.index.tz_localize(None)
+                        df['Change'] = df['Close'].pct_change()
+                except Exception as yf_err:
+                    logger.error(f"yfinance fallback failed for US stock {symbol}: {yf_err}")
+                    
         elif market in ['COIN', '암호화폐 (Upbit)']:
             df = pyupbit.get_ohlcv(symbol, interval="day", count=days)
             if df is not None: df.columns = [c.capitalize() for c in df.columns]
