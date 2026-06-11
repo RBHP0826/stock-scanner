@@ -11,7 +11,8 @@ from strategies.experts import (
     check_accumulation_bar, check_smart_money_flow, check_dante_bowl, 
     check_dante_256, check_gozack_box, check_hongingi, check_ap_investment, 
     check_aurora_signal, check_futureon_isle, check_futureon_shintae, 
-    check_futureon_juns, check_day_trading_signal, check_katch_signal
+    check_futureon_juns, check_day_trading_signal, check_katch_signal,
+    check_fvg_mitigation, check_turtle_soup_long
 )
 from utils.logger import logger
 
@@ -291,6 +292,20 @@ class StockScanner:
             katch_signal, msg = check_katch_signal(df)
             if katch_signal: score += 50; signals.extend(msg)
 
+            # --- SMC / ICT 기법 연동 ---
+            fvg_signal, fvg_msg, fvg_data = check_fvg_mitigation(df)
+            turtle_signal, turtle_msg, turtle_data = check_turtle_soup_long(df)
+            
+            smc_data = None
+            if fvg_signal:
+                score += 30
+                signals.extend(fvg_msg)
+                smc_data = fvg_data
+            elif turtle_signal:
+                score += 40
+                signals.extend(turtle_msg)
+                smc_data = turtle_data
+
             # --- 돈깡 데이매매법 시나리오 타점 계산 ---
             try:
                 # 돌파 타점: 당일 고가
@@ -343,12 +358,13 @@ class StockScanner:
                 'signals': ", ".join(signals),
                 'action': action,
                 'action_desc': action_desc,
-                'experts': {'dante': dante_bowl or dante_256, 'gozack': gozack, 'hongingi': hongingi, 'ap_inv': ap_inv, 'katch': katch_signal},
+                'experts': {'dante': dante_bowl or dante_256, 'gozack': gozack, 'hongingi': hongingi, 'ap_inv': ap_inv, 'katch': katch_signal, 'fvg': fvg_signal, 'turtle': turtle_signal},
                 'smart_money': {'accumulation': acc_bar, 'money_flow': money_flow},
                 'aurora': {'signal': aurora_signal, 'reasons': msg if aurora_signal else []},
                 'futureon': {'isle': isle, 'shintae': shintae, 'juns': juns, 'reasons': msg_isle + msg_shintae + msg_juns},
                 'donkkang': donkkang_data,
-                'general_scenario': general_scenario
+                'general_scenario': general_scenario,
+                'smc': smc_data
             }
         except Exception as e:
             logger.error(f"Error analyzing {symbol}: {e}", exc_info=True)

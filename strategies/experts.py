@@ -310,3 +310,69 @@ def check_katch_signal(df):
         return True, reasons
         
     return False, []
+
+def check_fvg_mitigation(df):
+    """
+    최근 발생한 Fair Value Gap(FVG) 갭 구간으로 주가가 되돌아와 지지(Mitigation)받는 상태를 포착합니다.
+    """
+    if len(df) < 5: return False, [], None
+    
+    # 최근 10일 이내에 FVG가 생성되었는지 역탐색
+    for i in range(-10, -2):
+        if i < -len(df) + 2: continue
+        c1 = df.iloc[i-2]
+        c2 = df.iloc[i-1]
+        c3 = df.iloc[i]
+        
+        # 상승 FVG 조건 (Imbalance Gap)
+        if c1['High'] < c3['Low']:
+            fvg_low = float(c1['High'])
+            fvg_high = float(c3['Low'])
+            
+            # 현재 종가(최근 일봉)가 이 FVG 구간 안에 터치하거나 걸쳐 있는지 확인
+            last_close = float(df['Close'].iloc[-1])
+            last_low = float(df['Low'].iloc[-1])
+            
+            # 갭이 아직 완전히 깨지지(Invalidated) 않았고, 현재 갭 지지 테스트 중인 경우
+            if last_low <= fvg_high and last_close >= fvg_low * 0.99:
+                # 갭 하단을 완전히 깨지 않은 지지 흐름
+                entry = fvg_high
+                stop = fvg_low * 0.97
+                target = fvg_high * 1.10 # 10% 단기 스윙 목표
+                
+                # FVG 형성 이후의 최근 최고가를 가져올 수 있다면 타겟으로 설정
+                recent_high = float(df['High'].iloc[i:].max())
+                if recent_high > entry * 1.03:
+                    target = recent_high
+                    
+                msg = [f"상승 FVG(공정가치갭) 되돌림 지지 포착 (갭구간: {int(fvg_low):,}원 ~ {int(fvg_high):,}원)"]
+                return True, msg, {"entry": entry, "stop": stop, "target": target, "type": "FVG"}
+                
+    return False, [], None
+
+def check_turtle_soup_long(df):
+    """
+    가짜 하방 돌파 후 급반등하는 터틀 수프(Turtle Soup) 매수 타점을 포착합니다.
+    최근 20일 최저가를 일시 이탈했다가 다시 복귀한 경우입니다.
+    """
+    if len(df) < 22: return False, [], None
+    
+    # 20일 전부터 어제까지의 최저가 구하기
+    prev_20_low = float(df['Low'].iloc[-21:-1].min())
+    
+    last = df.iloc[-1]
+    
+    # 조건: 오늘 최저가가 20일 최저가보다 낮았으나(하방 돌파 시도), 
+    # 종가는 20일 최저가 위로 복귀하여 마감
+    if float(last['Low']) < prev_20_low and float(last['Close']) > prev_20_low:
+        entry = float(last['Close'])
+        stop = float(last['Low']) * 0.98 # 꼬리 끝 이탈 시 손절
+        
+        # 목표가는 최근 20일 고점 혹은 피보나치 되돌림 중간 지점
+        prev_20_high = float(df['High'].iloc[-21:-1].max())
+        target = (entry + prev_20_high) / 2.0
+        
+        msg = ["SMC-Turtle Soup: 20일 최저가 가짜 하방 돌파(유동성 휩쓸기) 후 복귀 매수 시그널"]
+        return True, msg, {"entry": entry, "stop": stop, "target": target, "type": "Turtle Soup"}
+        
+    return False, [], None

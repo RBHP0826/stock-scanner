@@ -130,6 +130,18 @@ st.markdown("""
         .stRadio > div > label {
             font-size: 0.8rem !important;
         }
+        
+        /* 컬럼(st.columns) 수직 정렬 강제 */
+        [data-testid="column"] {
+            width: 100% !important;
+            flex-basis: 100% !important;
+        }
+        
+        /* 탭 바 패딩 및 글씨 크기 조정 */
+        [data-testid="stTabBar"] button {
+            padding: 6px 10px !important;
+            font-size: 0.8rem !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -218,6 +230,32 @@ def render_general_scenario(s_data):
             <p style='margin:2px 0;'><b>🎯 진입 (현재가 부근)</b>: <span style='color:#e67e22;'>{buy:,}원</span></p>
             <p style='margin:2px 0;'><b>📈 목표가 (익절)</b>: <span style='color:#27ae60;'>{target:,}원</span> (최근 20일 고점 돌파 목표)</p>
             <p style='margin:2px 0;'><b>🛡️ 방어선 (손절)</b>: <span style='color:#c0392b;'>{stop:,}원</span> (최근 10일 저점 이탈 주의)</p>
+        </div>
+    </div>
+    """
+    return html
+
+def render_smc_scenario(s_data):
+    smc = s_data.get('smc')
+    if not smc: return ""
+    
+    buy = int(smc.get('buy') or smc.get('entry', 0))
+    stop = int(smc.get('stop', 0))
+    target = int(smc.get('target', 0))
+    smc_type = smc.get('type', 'SMC')
+    
+    type_name = "상승 FVG 되돌림 지지 타점" if smc_type == "FVG" else "SMC-Turtle Soup (가짜 이탈 후 반등)"
+    bg_color = "rgba(155, 89, 182, 0.05)"
+    border_color = "#9b59b6"
+    title_color = "#bc8cff"
+    
+    html = f"""
+    <div style='margin-top:15px; padding:12px; background-color:{bg_color}; border:1px solid {border_color}; border-radius:8px;'>
+        <h5 style='color:{title_color}; margin:0 0 10px 0;'>📊 ICT/SMC 단기 스윙 타점 안내 ({type_name})</h5>
+        <div style='font-size:0.85em; color:#e2e8f0;'>
+            <p style='margin:2px 0;'><b>🎯 스윙 진입가 (현재가 부근)</b>: <span style='color:#f1c40f;'>{buy:,}원</span></p>
+            <p style='margin:2px 0;'><b>📈 목표가 (1차 익절)</b>: <span style='color:#2cc571;'>{target:,}원</span></p>
+            <p style='margin:2px 0;'><b>🛡️ 칼손절가 (하방 이탈)</b>: <span style='color:#e74c3c;'>{stop:,}원</span></p>
         </div>
     </div>
     """
@@ -327,7 +365,7 @@ def get_special_stocks(results):
     # 신호 강도 순으로 정렬 후 TOP 10 반환
     return sorted(special, key=lambda x: (x.get('total_signals', 0), x['score']), reverse=True)[:10]
 
-def display_detailed_chart(symbol, market):
+def display_detailed_chart(symbol, market, height=700):
     """선택된 종목의 상세 캔들스틱 차트를 표시합니다."""
     # 데이터 가져오기 (최근 120일)
     df = scanner.get_historical_data(symbol, market, days=120)
@@ -388,7 +426,7 @@ def display_detailed_chart(symbol, market):
     fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
     fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
 
-    fig.update_layout(height=700, template="plotly_dark", showlegend=True, 
+    fig.update_layout(height=height, template="plotly_dark", showlegend=True, 
                       xaxis_rangeslider_visible=False, margin=dict(l=10, r=10, t=40, b=10),
                       legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     
@@ -523,6 +561,7 @@ def plot_chart(df, symbol, name):
 # --- 공통 사이드바 설정 ---
 with st.sidebar:
     st.header("⚙️ 설정")
+    is_mobile = st.toggle("📱 모바일 최적화 모드 (Compact)", value=False, key="mobile_mode")
     market_choice = st.radio("분석 시장 선택", ["한국 (KRX)", "미국 (US)", "암호화폐 (Upbit)"])
     
     # 시장 선택 변경 시 이전 결과 초기화
@@ -902,11 +941,14 @@ with tab_scan:
             
             # --- 돈깡 데이매매법 시나리오 렌더링 ---
             st.markdown(render_donkkang_scenario(s_data), unsafe_allow_html=True)
+            
+            # --- SMC/ICT 단기 스윙 시나리오 렌더링 ---
+            st.markdown(render_smc_scenario(s_data), unsafe_allow_html=True)
             st.write("")
             
             s_col1, s_col2 = st.columns([2, 1])
             with s_col1:
-                display_detailed_chart(s_data['symbol'], s_data['market_type'])
+                display_detailed_chart(s_data['symbol'], s_data['market_type'], height=400 if st.session_state.get('mobile_mode', False) else 700)
             with s_col2:
                 st.metric("현재가", f"{s_data['current_price']:,.0f}")
                 st.metric("종합 점수", f"{s_data['score']}점")
@@ -976,6 +1018,9 @@ with tab_scan:
                 return dk.get('suitable', False)
             return False
 
+        def check_smc(row):
+            return bool(row.get('smc'))
+
         strategies = {
             "전체": df_res,
             "🚀 급등 임박": df_res[df_res['signals'].str.contains("🚀 급등 전조")] if not df_res.empty else df_res,
@@ -985,7 +1030,8 @@ with tab_scan:
             "🐜 홍인기": df_res[df_res['signals'].str.contains("홍인기|끼")] if not df_res.empty else df_res,
             "🚀 AP-김용재": df_res[df_res['signals'].str.contains("AP-김용재")] if not df_res.empty else df_res,
             "✨ 오로라": df_res[df_res.apply(check_aurora, axis=1)] if not df_res.empty else df_res,
-            "🏆 퓨처온": df_res[df_res.apply(check_futureon, axis=1)] if not df_res.empty else df_res
+            "🏆 퓨처온": df_res[df_res.apply(check_futureon, axis=1)] if not df_res.empty else df_res,
+            "💎 SMC/ICT": df_res[df_res.apply(check_smc, axis=1)] if not df_res.empty else df_res
         }
         
         # 매매법 선택 옵션 생성 (개수 포함)
@@ -1100,9 +1146,14 @@ SCORE: {row['score']}
             else:
                 st.info(f"💡 **팁**: 아래 테이블에서 종목을 클릭하면 하단에 상세 차트와 전문가 매매법 분석 결과가 나타납니다. (총 {len(df_filtered)}개)")
                 
-                df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']].copy()
-                df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
-                df_display.columns = ['액션', '상태', '코드', '종목명', '점수', '현재가', '등락률', 'RSI', '상세신호']
+                if st.session_state.get('mobile_mode', False):
+                    df_display = df_filtered[['action', 'Name', 'change_rate', 'score']].copy()
+                    df_display['action'] = df_display['action'].map({'BUY': '🟢', 'SELL': '🔴', 'WAIT': '⚫'}).fillna(df_display['action'])
+                    df_display.columns = ['액션', '종목명', '등락률', '점수']
+                else:
+                    df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']].copy()
+                    df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
+                    df_display.columns = ['액션', '상태', '코드', '종목명', '점수', '현재가', '등락률', 'RSI', '상세신호']
                 
                 # 스타일링이 on_select와 충돌하여 React DOM 에러(removeChild)를 유발할 수 있으므로, 스타일 대신 순수 df를 넘기고 고유 키를 할당합니다.
                 selection_event = st.dataframe(
@@ -1188,17 +1239,28 @@ SCORE: {row['score']}
                         for r in selected_data['futureon']['reasons']:
                             st.caption(f"• {r}")
                     else: st.write("⚪ 조건 미달")
+                
+                exp_cols4 = st.columns(2)
+                with exp_cols4[0]:
+                    st.write("**💎 SMC / ICT 기법 (Mensa)**")
+                    if selected_data.get('smc'):
+                        st.success(f"✅ **SMC 신호 감지!**")
+                        st.caption(f"• {selected_data['smc'].get('type')} 패턴 확인")
+                    else: st.write("⚪ 조건 미달")
 
                 # --- 일반 스윙 매매 가이드 렌더링 ---
                 st.markdown(render_general_scenario(selected_data), unsafe_allow_html=True)
 
                 # --- 돈깡 데이매매법 시나리오 렌더링 ---
                 st.markdown(render_donkkang_scenario(selected_data), unsafe_allow_html=True)
+                
+                # --- SMC/ICT 단기 스윙 시나리오 렌더링 ---
+                st.markdown(render_smc_scenario(selected_data), unsafe_allow_html=True)
                 st.write("")
 
                 col_chart, col_side = st.columns([2, 1])
                 with col_chart:
-                    display_detailed_chart(selected_symbol, current_market)
+                    display_detailed_chart(selected_symbol, current_market, height=400 if st.session_state.get('mobile_mode', False) else 700)
                 
                 with col_side:
                     st.metric("현재가", f"{selected_data['current_price']:,.0f}")
@@ -1393,12 +1455,17 @@ with tab_portfolio:
                 
                 # 데이터 그리드 (다중 선택 활성화)
                 st.write("**현재 현황** (아래 표에서 종목을 선택하여 복수 삭제가 가능합니다.)")
-                display_cols = ['action', 'action_desc', 'name', 'symbol', 'score', 'current_price', 'rsi', 'signals']
-                
-                # [개선] 셀 배경색(styling)은 Streamlit 버그(removeChild)를 유발하므로, 이모지를 활용해 직관적인 색상을 부여합니다.
-                df_m_display = df_m[display_cols].copy()
-                if not df_m_display.empty and 'action' in df_m_display.columns:
-                    df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
+                if st.session_state.get('mobile_mode', False):
+                    display_cols = ['action', 'name', 'current_price', 'rsi']
+                    df_m_display = df_m[display_cols].copy()
+                    if not df_m_display.empty and 'action' in df_m_display.columns:
+                        df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢', 'SELL': '🔴', 'WAIT': '⚫'}).fillna(df_m_display['action'])
+                    df_m_display.columns = ['액션', '이름', '현재가', 'RSI']
+                else:
+                    display_cols = ['action', 'action_desc', 'name', 'symbol', 'score', 'current_price', 'rsi', 'signals']
+                    df_m_display = df_m[display_cols].copy()
+                    if not df_m_display.empty and 'action' in df_m_display.columns:
+                        df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
 
                 selection = st.dataframe(
                     df_m_display,
@@ -1485,9 +1552,8 @@ with tab_portfolio:
                                     st.caption(f"• {r}")
                             else: st.write("⚪ 조건 미달")
 
-                        col_chart, col_side = st.columns([2, 1])
                         with col_chart:
-                            display_detailed_chart(selected_symbol, m_key)
+                            display_detailed_chart(selected_symbol, m_key, height=400 if st.session_state.get('mobile_mode', False) else 700)
                         
                         with col_side:
                             st.metric("현재가", f"{selected_data['current_price']:,.0f}")
@@ -1651,11 +1717,20 @@ with tab_dict:
         else:
             st.info(f"📅 {selected_date}에 기록된 쉐도잉 데이터가 없습니다. 아래 '실시간 데이터 반영' 버튼으로 수집하거나 행을 추가하여 직접 작성해 주세요.")
             
+        # 세션 상태 초기화 (날짜별로 유니크하게 관리)
+        sel_key = f"sel_shadow_stock_{selected_date}"
+        if sel_key not in st.session_state:
+            st.session_state[sel_key] = None
+            
         # 데이터프레임 빌드
         if not table_rows:
-            df_display = pd.DataFrame(columns=["번호", "업종", "종목코드", "종목명", "등락률", "거래대금(억)", "종가", "상승이유", "키워드"])
+            df_display = pd.DataFrame(columns=["선택", "번호", "업종", "종목코드", "종목명", "등락률", "거래대금(억)", "종가", "상승이유", "키워드"])
         else:
             df_display = pd.DataFrame(table_rows)
+            df_display.insert(0, "선택", False)
+            curr_sel = st.session_state[sel_key]
+            if curr_sel is not None and 0 <= curr_sel < len(df_display):
+                df_display.loc[curr_sel, "선택"] = True
             
         # 데이터 에디터 렌더링
         st.markdown("##### 📝 급등주 & 거래대금 쉐도잉 편집 테이블")
@@ -1664,6 +1739,7 @@ with tab_dict:
             use_container_width=True,
             num_rows="dynamic",
             column_config={
+                "선택": st.column_config.CheckboxColumn(width="small"),
                 "번호": st.column_config.NumberColumn(disabled=True),
                 "업종": st.column_config.TextColumn(width="medium"),
                 "종목코드": st.column_config.TextColumn(width="medium"),
@@ -1676,6 +1752,134 @@ with tab_dict:
             },
             key=f"shadow_editor_{selected_date}"
         )
+        
+        # [신규] 쉐도잉 편집 테이블 선택 체크박스 감지 및 단일 선택(라디오 단추화) 로직
+        if edited_df is not None and not edited_df.empty and "선택" in edited_df.columns:
+            currently_true_indices = edited_df[edited_df["선택"] == True].index.tolist()
+            previous_sel = st.session_state[sel_key]
+            
+            new_sel = None
+            if len(currently_true_indices) > 0:
+                if previous_sel in currently_true_indices:
+                    if len(currently_true_indices) > 1:
+                        # 이미 선택된게 있는 상태에서 새것이 선택된 경우
+                        new_candidates = [idx for idx in currently_true_indices if idx != previous_sel]
+                        new_sel = new_candidates[0]
+                    else:
+                        new_sel = previous_sel
+                else:
+                    # 새로운 것이 하나만 체크된 경우
+                    new_sel = currently_true_indices[0]
+            else:
+                new_sel = None
+                
+            if new_sel != previous_sel:
+                st.session_state[sel_key] = new_sel
+                st.rerun()
+                
+        # [신규] 선택 종목 분석 연동
+        selected_stock_data = None
+        curr_sel = st.session_state[sel_key]
+        if curr_sel is not None and curr_sel < len(df_display):
+            row = df_display.iloc[curr_sel]
+            symbol = row.get("종목코드", "")
+            name = row.get("종목명", "")
+            
+            if name:
+                # 종목 코드가 없는 경우 역추적
+                if not symbol or pd.isna(symbol):
+                    found_code, found_market = scanner.find_symbol_by_name(name)
+                    if found_code:
+                        symbol = found_code
+                        market = found_market
+                    else:
+                        symbol = None
+                        market = 'KR'
+                else:
+                    symbol = str(symbol).strip().upper()
+                    # 시장 자동 판별
+                    market = 'KR'
+                    if '-' in symbol: market = 'COIN'
+                    elif any(c.isalpha() for c in symbol): market = 'US'
+                    
+                if symbol:
+                    with st.spinner(f"'{name}' ({symbol}) 상세 분석 및 차트를 불러오는 중..."):
+                        analysis = scanner.analyze_stock(symbol, market)
+                        if analysis:
+                            analysis['Name'] = name
+                            analysis['market_type'] = market
+                            selected_stock_data = analysis
+                        else:
+                            st.error(f"'{name}' ({symbol}) 시세 데이터를 불러오지 못했습니다. 데이터가 없거나 코드 형식을 확인해주세요.")
+                else:
+                    st.warning(f"'{name}' 종목의 종목코드를 찾을 수 없습니다. 종목코드 열에 올바른 코드를 직접 입력해주세요.")
+                        
+        if selected_stock_data:
+            st.markdown("---")
+            st.markdown(f"### 📈 {selected_stock_data['Name']} ({selected_stock_data['symbol']}) 상세 분석 (쉐도잉 연동)")
+            
+            # 전문가 기법 해당 여부 확인 섹션 (강조)
+            st.markdown("#### 🧐 전문가 기법 및 수급 확인")
+            exp_cols1 = st.columns(2)
+            with exp_cols1[0]:
+                st.write("**🥣 주식단테 (밥그릇/2/5/6)**")
+                if "밥그릇" in str(selected_stock_data['signals']): st.success("✅ **밥그릇 3번 자리 감지!**")
+                elif "256" in str(selected_stock_data['signals']): st.info("✅ **256 타점 진입!**")
+                else: st.write("⚪ 조건 미달")
+            with exp_cols1[1]:
+                st.write("**📦 고쨱짹 (박스돌파)**")
+                if "고쨱짹" in str(selected_stock_data['signals']): st.success("✅ **박스권 돌파 + 수급 대폭발!**")
+                else: st.write("⚪ 조건 미달")
+                
+            exp_cols2 = st.columns(2)
+            with exp_cols2[0]:
+                st.write("**🐜 대왕개미 홍인기 (대장주/끼)**")
+                if "홍인기" in str(selected_stock_data['signals']): st.success("✅ **주도주 장대양봉 발생!**")
+                elif "끼" in str(selected_stock_data['signals']): st.info("✅ **과거 급등 '끼' 보유!**")
+                else: st.write("⚪ 조건 미달")
+            with exp_cols2[1]:
+                st.write("**🚀 AP투자연구소 김용재**")
+                if "AP-김용재" in str(selected_stock_data['signals']): st.success("✅ **시가/고가 돌파 및 수급 집중!**")
+                else: st.write("⚪ 조건 미달")
+                
+            exp_cols3 = st.columns(2)
+            with exp_cols3[0]:
+                st.write("**💎 SMC / ICT 기법 (Mensa)**")
+                if selected_stock_data.get('smc'):
+                    st.success(f"✅ **SMC 신호 감지!**")
+                    st.caption(f"• {selected_stock_data['smc'].get('type')} 패턴 확인")
+                else: st.write("⚪ 조건 미달")
+                
+            # 일반 및 돈깡 시나리오 가이드
+            st.markdown(render_general_scenario(selected_stock_data), unsafe_allow_html=True)
+            st.markdown(render_donkkang_scenario(selected_stock_data), unsafe_allow_html=True)
+            st.markdown(render_smc_scenario(selected_stock_data), unsafe_allow_html=True)
+            
+            # 차트 및 감지 신호 메트릭
+            col_chart, col_side = st.columns([2, 1])
+            with col_chart:
+                display_detailed_chart(selected_stock_data['symbol'], selected_stock_data['market_type'], height=400 if st.session_state.get('mobile_mode', False) else 700)
+            with col_side:
+                st.metric("현재가", f"{selected_stock_data['current_price']:,.0f}")
+                st.metric("종합 점수", f"{selected_stock_data['score']}점")
+                st.markdown("##### 📡 실시간 감지 신호")
+                for s in str(selected_stock_data['signals']).split(','):
+                    if s.strip(): st.write(f"- {s.strip()}")
+                
+                st.markdown("##### 💡 전문가 의견")
+                if selected_stock_data['action'] == 'BUY': st.success(f"**{selected_stock_data['action_desc']}**")
+                else: st.info(f"**{selected_stock_data['action_desc']}**")
+                
+                if st.button("⭐ 포트폴리오에 추가", key="add_portfolio_shadow_btn"):
+                    p_data = load_portfolio()
+                    m_key = selected_stock_data['market_type']
+                    if selected_stock_data['symbol'] not in p_data[m_key]:
+                        p_data[m_key].append(selected_stock_data['symbol'])
+                        save_portfolio(p_data)
+                        st.success("추가되었습니다!")
+                        st.rerun()
+                    else: st.warning("이미 등록된 종목입니다.")
+            st.markdown("---")
         
         col_db1, col_db2 = st.columns(2)
         with col_db1:
