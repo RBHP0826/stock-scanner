@@ -130,29 +130,6 @@ st.markdown("""
         .stRadio > div > label {
             font-size: 0.8rem !important;
         }
-        
-        /* 컬럼(st.columns) 수직 정렬 강제 */
-        [data-testid="column"] {
-            width: 100% !important;
-            flex-basis: 100% !important;
-        }
-        
-        /* 탭 바 패딩 및 글씨 크기 조정 */
-        [data-testid="stTabBar"] button {
-            padding: 6px 10px !important;
-            font-size: 0.8rem !important;
-        }
-        
-        /* 모바일 st.metric 폰트 및 패딩 압축 */
-        [data-testid="stMetricValue"] {
-            font-size: 1.4rem !important;
-        }
-        [data-testid="stMetricLabel"] {
-            font-size: 0.85rem !important;
-        }
-        [data-testid="stMetric"] {
-            padding: 8px !important;
-        }
     }
     </style>
     """, unsafe_allow_html=True)
@@ -241,32 +218,6 @@ def render_general_scenario(s_data):
             <p style='margin:2px 0;'><b>🎯 진입 (현재가 부근)</b>: <span style='color:#e67e22;'>{buy:,}원</span></p>
             <p style='margin:2px 0;'><b>📈 목표가 (익절)</b>: <span style='color:#27ae60;'>{target:,}원</span> (최근 20일 고점 돌파 목표)</p>
             <p style='margin:2px 0;'><b>🛡️ 방어선 (손절)</b>: <span style='color:#c0392b;'>{stop:,}원</span> (최근 10일 저점 이탈 주의)</p>
-        </div>
-    </div>
-    """
-    return html
-
-def render_smc_scenario(s_data):
-    smc = s_data.get('smc')
-    if not smc: return ""
-    
-    buy = int(smc.get('buy') or smc.get('entry', 0))
-    stop = int(smc.get('stop', 0))
-    target = int(smc.get('target', 0))
-    smc_type = smc.get('type', 'SMC')
-    
-    type_name = "상승 FVG 되돌림 지지 타점" if smc_type == "FVG" else "SMC-Turtle Soup (가짜 이탈 후 반등)"
-    bg_color = "rgba(155, 89, 182, 0.05)"
-    border_color = "#9b59b6"
-    title_color = "#bc8cff"
-    
-    html = f"""
-    <div style='margin-top:15px; padding:12px; background-color:{bg_color}; border:1px solid {border_color}; border-radius:8px;'>
-        <h5 style='color:{title_color}; margin:0 0 10px 0;'>📊 ICT/SMC 단기 스윙 타점 안내 ({type_name})</h5>
-        <div style='font-size:0.85em; color:#e2e8f0;'>
-            <p style='margin:2px 0;'><b>🎯 스윙 진입가 (현재가 부근)</b>: <span style='color:#f1c40f;'>{buy:,}원</span></p>
-            <p style='margin:2px 0;'><b>📈 목표가 (1차 익절)</b>: <span style='color:#2cc571;'>{target:,}원</span></p>
-            <p style='margin:2px 0;'><b>🛡️ 칼손절가 (하방 이탈)</b>: <span style='color:#e74c3c;'>{stop:,}원</span></p>
         </div>
     </div>
     """
@@ -376,7 +327,7 @@ def get_special_stocks(results):
     # 신호 강도 순으로 정렬 후 TOP 10 반환
     return sorted(special, key=lambda x: (x.get('total_signals', 0), x['score']), reverse=True)[:10]
 
-def display_detailed_chart(symbol, market, height=700):
+def display_detailed_chart(symbol, market):
     """선택된 종목의 상세 캔들스틱 차트를 표시합니다."""
     # 데이터 가져오기 (최근 120일)
     df = scanner.get_historical_data(symbol, market, days=120)
@@ -437,16 +388,11 @@ def display_detailed_chart(symbol, market, height=700):
     fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
     fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
 
-    fig.update_layout(height=height, template="plotly_dark", showlegend=True, 
-                      xaxis_rangeslider_visible=False, margin=dict(l=5, r=5, t=30, b=5),
+    fig.update_layout(height=700, template="plotly_dark", showlegend=True, 
+                      xaxis_rangeslider_visible=False, margin=dict(l=10, r=10, t=40, b=10),
                       legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     
-    st.plotly_chart(fig, use_container_width=True, config={
-        'scrollZoom': False,
-        'displayModeBar': False,
-        'modeBarButtonsToRemove': ['zoom', 'pan', 'select', 'lasso2d', 'zoomIn', 'zoomOut', 'autoScale', 'resetScale'],
-        'staticPlot': False
-    })
+    st.plotly_chart(fig, use_container_width=True)
 
 # --- Portfolio Management ---
 # 실행 환경에 구애받지 않도록 절대 경로 사용
@@ -498,32 +444,15 @@ scanner = get_scanner()
 # @st.cache_data(ttl=3600)  # 코드 변경 후 데이터 호환성을 위해 일시적으로 캐싱 비활성화
 def run_scan(market_choice, scan_limit):
     if market_choice == "한국 (KRX)":
-        symbols_df = scanner.get_krx_symbols()
-        if 'Amount' in symbols_df.columns:
-            symbols_df['Amount'] = pd.to_numeric(symbols_df['Amount'], errors='coerce').fillna(0)
-            symbols_df = symbols_df.sort_values(by='Amount', ascending=False)
-        elif 'Marcap' in symbols_df.columns:
-            symbols_df['Marcap'] = pd.to_numeric(symbols_df['Marcap'], errors='coerce').fillna(0)
-            symbols_df = symbols_df.sort_values(by='Marcap', ascending=False)
-        symbols_df = symbols_df.head(scan_limit)
+        symbols_df = scanner.get_krx_symbols().head(scan_limit)
         market_code = 'KR'
         symbol_col = 'Code' if 'Code' in symbols_df.columns else 'Symbol'
     elif market_choice == "미국 (US)":
-        symbols_df = scanner.get_us_symbols()
-        major_us = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AVGO', 'LLY', 'JPM', 'UNH', 'XOM', 'V', 'PG', 'MA']
-        if 'Symbol' in symbols_df.columns:
-            symbols_df['is_major'] = symbols_df['Symbol'].apply(lambda x: major_us.index(x) if x in major_us else 999)
-            symbols_df = symbols_df.sort_values(by='is_major').drop(columns=['is_major'])
-        symbols_df = symbols_df.head(scan_limit)
+        symbols_df = scanner.get_us_symbols().head(scan_limit)
         market_code = 'US'
         symbol_col = 'Symbol'
     else: # 암호화폐 (Upbit)
-        symbols_df = scanner.get_coin_symbols()
-        major_coins = ['KRW-BTC', 'KRW-ETH', 'KRW-XRP', 'KRW-SOL', 'KRW-ADA', 'KRW-DOGE', 'KRW-SHIB', 'KRW-DOT', 'KRW-AVAX', 'KRW-LINK', 'KRW-TRX', 'KRW-ETC', 'KRW-APT', 'KRW-SUI']
-        if 'Symbol' in symbols_df.columns:
-            symbols_df['is_major'] = symbols_df['Symbol'].apply(lambda x: major_coins.index(x) if x in major_coins else 999)
-            symbols_df = symbols_df.sort_values(by='is_major').drop(columns=['is_major'])
-        symbols_df = symbols_df.head(scan_limit)
+        symbols_df = scanner.get_coin_symbols().head(scan_limit)
         market_code = 'COIN'
         symbol_col = 'Symbol'
 
@@ -594,7 +523,6 @@ def plot_chart(df, symbol, name):
 # --- 공통 사이드바 설정 ---
 with st.sidebar:
     st.header("⚙️ 설정")
-    is_mobile = st.toggle("📱 모바일 카드 뷰 모드 (라씨 스타일)", value=True, key="mobile_mode")
     market_choice = st.radio("분석 시장 선택", ["한국 (KRX)", "미국 (US)", "암호화폐 (Upbit)"])
     
     # 시장 선택 변경 시 이전 결과 초기화
@@ -607,82 +535,81 @@ with st.sidebar:
     run_button = st.button("🔥 스캔 시작")
     
     st.markdown("---")
-    with st.expander("⚙️ 고급 알림 및 시스템 설정", expanded=False):
-        st.subheader("📢 알림 설정")
-        config = load_config()
-        tg_token = st.text_input("Telegram Bot Token", value=config.get("telegram_token", ""), type="password")
-        tg_chat_id = st.text_input("Telegram Chat ID", value=config.get("telegram_chat_id", ""))
-        auto_send = st.checkbox("🔥 스캔 완료 시 자동 전송", value=config.get("auto_send", False))
-        st.markdown("---")
-        st.subheader("🌐 외부 접속 환경 설정")
-        custom_url_input = st.text_input("커스텀 URL (선택, ngrok 등)", value=config.get("custom_url", ""), help="외부망에서 접속할 때 할당받은 주소(예: https://1234.ngrok.io)를 입력하면 해당 주소로 QR코드가 생성됩니다. 비워두면 현재 PC의 내부망 IP로 자동 생성됩니다.")
-        st.markdown("---")
-        st.subheader("🔒 보안 설정")
-        app_pwd_input = st.text_input("대시보드 접속 비밀번호", value=config.get("app_password", "admin1234"), type="password", help="앱에 접속할 때 필요한 비밀번호입니다. 기본값은 admin1234 입니다.")
-        
-        col_cfg1, col_cfg2 = st.columns(2)
-        with col_cfg1:
-            if st.button("💾 설정 저장", use_container_width=True):
-                config["telegram_token"] = tg_token
-                config["telegram_chat_id"] = tg_chat_id
-                config["auto_send"] = auto_send
-                config["custom_url"] = custom_url_input
-                config["app_password"] = app_pwd_input
-                save_config(config)
-                st.success("설정이 저장되었습니다!")
-        
-        with col_cfg2:
-            if st.button("⚡ 연결 테스트", use_container_width=True):
-                if not tg_token or not tg_chat_id:
-                    st.warning("토큰과 채팅ID를 먼저 입력하세요.")
-                else:
-                    test_url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
-                    test_data = {"chat_id": tg_chat_id, "text": "✅ *주식 대시보드*: 연결 테스트 성공! 🚀", "parse_mode": "Markdown"}
-                    try:
-                        res = requests.post(test_url, data=test_data)
-                        if res.status_code == 200:
-                            st.success("연결 성공! 텔레그램을 확인하세요.")
-                        else:
-                            st.error(f"실패: {res.text}")
-                    except Exception as e:
-                        st.error(f"오류: {e}")
-        
-        if st.button("🔍 내 채팅 ID 자동으로 찾기"):
-            if not tg_token:
-                st.warning("먼저 봇 토큰(Token)을 입력해 주세요.")
+    st.subheader("📢 알림 설정")
+    config = load_config()
+    tg_token = st.text_input("Telegram Bot Token", value=config.get("telegram_token", ""), type="password")
+    tg_chat_id = st.text_input("Telegram Chat ID", value=config.get("telegram_chat_id", ""))
+    auto_send = st.checkbox("🔥 스캔 완료 시 자동 전송", value=config.get("auto_send", False))
+    st.markdown("---")
+    st.subheader("🌐 외부 접속 환경 설정")
+    custom_url_input = st.text_input("커스텀 URL (선택, ngrok 등)", value=config.get("custom_url", ""), help="외부망에서 접속할 때 할당받은 주소(예: https://1234.ngrok.io)를 입력하면 해당 주소로 QR코드가 생성됩니다. 비워두면 현재 PC의 내부망 IP로 자동 생성됩니다.")
+    st.markdown("---")
+    st.subheader("🔒 보안 설정")
+    app_pwd_input = st.text_input("대시보드 접속 비밀번호", value=config.get("app_password", "admin1234"), type="password", help="앱에 접속할 때 필요한 비밀번호입니다. 기본값은 admin1234 입니다.")
+    
+    col_cfg1, col_cfg2 = st.columns(2)
+    with col_cfg1:
+        if st.button("💾 설정 저장", use_container_width=True):
+            config["telegram_token"] = tg_token
+            config["telegram_chat_id"] = tg_chat_id
+            config["auto_send"] = auto_send
+            config["custom_url"] = custom_url_input
+            config["app_password"] = app_pwd_input
+            save_config(config)
+            st.success("설정이 저장되었습니다!")
+    
+    with col_cfg2:
+        if st.button("⚡ 연결 테스트", use_container_width=True):
+            if not tg_token or not tg_chat_id:
+                st.warning("토큰과 채팅ID를 먼저 입력하세요.")
             else:
+                test_url = f"https://api.telegram.org/bot{tg_token}/sendMessage"
+                test_data = {"chat_id": tg_chat_id, "text": "✅ *주식 대시보드*: 연결 테스트 성공! 🚀", "parse_mode": "Markdown"}
                 try:
-                    with st.spinner("텔레그램에서 최신 메시지를 확인 중입니다..."):
-                        # 봇에게 메시지를 보낸 이력을 확인하여 채팅 ID를 가져옴
-                        update_url = f"https://api.telegram.org/bot{tg_token}/getUpdates"
-                        res = requests.get(update_url).json()
-                        
-                        if res.get("ok") and res.get("result"):
-                            # 최신 업데이트부터 역순으로 탐색
-                            found_id = None
-                            found_name = None
-                            
-                            for update in reversed(res["result"]):
-                                # 일반 메시지 확인
-                                if "message" in update:
-                                    found_id = update["message"]["chat"]["id"]
-                                    found_name = update["message"]["chat"].get("title") or update["message"]["chat"].get("first_name", "사용자")
-                                    break
-                                # 채널 포스트 확인
-                                elif "channel_post" in update:
-                                    found_id = update["channel_post"]["chat"]["id"]
-                                    found_name = update["channel_post"]["chat"].get("title", "채널")
-                                    break
-                            
-                            if found_id:
-                                st.success(f"성공! '{found_name}' (ID: {found_id})를 찾았습니다.")
-                                st.info("이 ID를 채팅 ID 칸에 입력하고 저장하세요. (채널의 경우 -100으로 시작하는 숫자가 맞습니다.)")
-                            else:
-                                st.error("최근 메시지나 포스트를 찾지 못했습니다.")
-                        else:
-                            st.error("봇이 받은 메시지가 없습니다. 텔레그램 채팅방(또는 채널)에서 메시지를 보내거나 포스팅한 후 다시 시도해 주세요.")
+                    res = requests.post(test_url, data=test_data)
+                    if res.status_code == 200:
+                        st.success("연결 성공! 텔레그램을 확인하세요.")
+                    else:
+                        st.error(f"실패: {res.text}")
                 except Exception as e:
-                    st.error(f"오류 발생: {e}")
+                    st.error(f"오류: {e}")
+    
+    if st.button("🔍 내 채팅 ID 자동으로 찾기"):
+        if not tg_token:
+            st.warning("먼저 봇 토큰(Token)을 입력해 주세요.")
+        else:
+            try:
+                with st.spinner("텔레그램에서 최신 메시지를 확인 중입니다..."):
+                    # 봇에게 메시지를 보낸 이력을 확인하여 채팅 ID를 가져옴
+                    update_url = f"https://api.telegram.org/bot{tg_token}/getUpdates"
+                    res = requests.get(update_url).json()
+                    
+                    if res.get("ok") and res.get("result"):
+                        # 최신 업데이트부터 역순으로 탐색
+                        found_id = None
+                        found_name = None
+                        
+                        for update in reversed(res["result"]):
+                            # 일반 메시지 확인
+                            if "message" in update:
+                                found_id = update["message"]["chat"]["id"]
+                                found_name = update["message"]["chat"].get("title") or update["message"]["chat"].get("first_name", "사용자")
+                                break
+                            # 채널 포스트 확인
+                            elif "channel_post" in update:
+                                found_id = update["channel_post"]["chat"]["id"]
+                                found_name = update["channel_post"]["chat"].get("title", "채널")
+                                break
+                        
+                        if found_id:
+                            st.success(f"성공! '{found_name}' (ID: {found_id})를 찾았습니다.")
+                            st.info("이 ID를 채팅 ID 칸에 입력하고 저장하세요. (채널의 경우 -100으로 시작하는 숫자가 맞습니다.)")
+                        else:
+                            st.error("최근 메시지나 포스트를 찾지 못했습니다.")
+                    else:
+                        st.error("봇이 받은 메시지가 없습니다. 텔레그램 채팅방(또는 채널)에서 메시지를 보내거나 포스팅한 후 다시 시도해 주세요.")
+            except Exception as e:
+                st.error(f"오류 발생: {e}")
 
     st.markdown("---")
     st.subheader("📱 모바일 접속")
@@ -762,46 +689,21 @@ def sync_realtime_shadowing_data(scanner=None):
     import FinanceDataReader as fdr
     import pandas as pd
     from utils.news_fetcher import fetch_latest_news_reason
-    import os
     
     try:
         today_str = datetime.datetime.now().strftime("%Y-%m-%d")
         
         # 1. KRX 전체 종목 목록 로드
-        if scanner is None:
-            from stock_scanner import StockScanner
-            scanner = StockScanner()
-        
-        df_krx = scanner.get_krx_symbols()
-        if df_krx is not None and 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
+        df_krx = fdr.StockListing('KRX')
+        if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
             df_krx['Code'] = df_krx['Symbol']
             
         # 2. KRX-DESC 로드해서 업종(Sector, Industry) 병합
-        df_desc = None
         try:
             df_desc = fdr.StockListing('KRX-DESC')
-            if df_desc is not None and not df_desc.empty:
-                # Save cache
-                try:
-                    cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "krx_desc_cache.json")
-                    df_desc[['Code', 'Sector', 'Industry']].to_json(cache_path, orient='records', force_ascii=False, indent=2)
-                except Exception as cache_err:
-                    pass
-        except Exception as e:
-            # Try to load from local cache
-            try:
-                cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "krx_desc_cache.json")
-                if os.path.exists(cache_path):
-                    df_desc = pd.read_json(cache_path, encoding='utf-8')
-                    if df_desc is not None and not df_desc.empty:
-                        df_desc['Code'] = df_desc['Code'].astype(str).str.zfill(6)
-            except Exception as cache_load_err:
-                df_desc = None
-
-        if df_desc is not None and not df_desc.empty:
             df_desc = df_desc[['Code', 'Sector', 'Industry']]
             df_merged = pd.merge(df_krx, df_desc, on='Code', how='left')
-        else:
+        except Exception as e:
             df_merged = df_krx.copy()
             df_merged['Sector'] = '테마미분류'
             df_merged['Industry'] = '테마미분류'
@@ -1000,14 +902,11 @@ with tab_scan:
             
             # --- 돈깡 데이매매법 시나리오 렌더링 ---
             st.markdown(render_donkkang_scenario(s_data), unsafe_allow_html=True)
-            
-            # --- SMC/ICT 단기 스윙 시나리오 렌더링 ---
-            st.markdown(render_smc_scenario(s_data), unsafe_allow_html=True)
             st.write("")
             
             s_col1, s_col2 = st.columns([2, 1])
             with s_col1:
-                display_detailed_chart(s_data['symbol'], s_data['market_type'], height=400 if st.session_state.get('mobile_mode', False) else 700)
+                display_detailed_chart(s_data['symbol'], s_data['market_type'])
             with s_col2:
                 st.metric("현재가", f"{s_data['current_price']:,.0f}")
                 st.metric("종합 점수", f"{s_data['score']}점")
@@ -1077,9 +976,6 @@ with tab_scan:
                 return dk.get('suitable', False)
             return False
 
-        def check_smc(row):
-            return bool(row.get('smc'))
-
         strategies = {
             "전체": df_res,
             "🚀 급등 임박": df_res[df_res['signals'].str.contains("🚀 급등 전조")] if not df_res.empty else df_res,
@@ -1089,8 +985,7 @@ with tab_scan:
             "🐜 홍인기": df_res[df_res['signals'].str.contains("홍인기|끼")] if not df_res.empty else df_res,
             "🚀 AP-김용재": df_res[df_res['signals'].str.contains("AP-김용재")] if not df_res.empty else df_res,
             "✨ 오로라": df_res[df_res.apply(check_aurora, axis=1)] if not df_res.empty else df_res,
-            "🏆 퓨처온": df_res[df_res.apply(check_futureon, axis=1)] if not df_res.empty else df_res,
-            "💎 SMC/ICT": df_res[df_res.apply(check_smc, axis=1)] if not df_res.empty else df_res
+            "🏆 퓨처온": df_res[df_res.apply(check_futureon, axis=1)] if not df_res.empty else df_res
         }
         
         # 매매법 선택 옵션 생성 (개수 포함)
@@ -1205,161 +1100,19 @@ SCORE: {row['score']}
             else:
                 st.info(f"💡 **팁**: 아래 테이블에서 종목을 클릭하면 하단에 상세 차트와 전문가 매매법 분석 결과가 나타납니다. (총 {len(df_filtered)}개)")
                 
-                if st.session_state.get('mobile_mode', False):
-                    # 1. Render beautiful HTML cards for each stock (RASi style)
-                    st.markdown("### 📡 실시간 종목 매매 신호 (라씨 스타일)")
-                    
-                    cards_html = ""
-                    for idx, row in df_filtered.iterrows():
-                        # Determine action styling
-                        action = row.get('action', 'WAIT')
-                        action_desc = row.get('action_desc', '관망')
-                        
-                        if action == 'BUY':
-                            action_bg = 'rgba(255, 75, 75, 0.15)'
-                            action_text_color = '#ff4b4b'
-                            action_border = '#ff4b4b'
-                            action_shadow = 'rgba(255, 75, 75, 0.2)'
-                        elif action == 'SELL':
-                            action_bg = 'rgba(88, 166, 255, 0.15)'
-                            action_text_color = '#58a6ff'
-                            action_border = '#58a6ff'
-                            action_shadow = 'rgba(88, 166, 255, 0.2)'
-                        else:
-                            action_bg = 'rgba(139, 148, 158, 0.15)'
-                            action_text_color = '#8b949e'
-                            action_border = '#30363d'
-                            action_shadow = 'rgba(0, 0, 0, 0)'
-                            
-                        # Change rate sign & color
-                        change_rate = row.get('change_rate', 0.0)
-                        if change_rate > 0:
-                            change_color = '#ff4b4b'
-                            change_sign = '▲ '
-                        elif change_rate < 0:
-                            change_color = '#58a6ff'
-                            change_sign = '▼ '
-                        else:
-                            change_color = '#8b949e'
-                            change_sign = ''
-                            
-                        # Generate badges
-                        badges = []
-                        exp = row.get('experts', {})
-                        sm = row.get('smart_money', {})
-                        aurora = row.get('aurora', {})
-                        futureon = row.get('futureon', {})
-                        
-                        if exp.get('dante'): 
-                            if "밥그릇" in row.get('signals', ''): badges.append('<span style="background-color: rgba(155, 89, 182, 0.15); color: #bc8cff; border: 1px solid rgba(155, 89, 182, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🥣 밥그릇</span>')
-                            if "256" in row.get('signals', ''): badges.append('<span style="background-color: rgba(52, 73, 94, 0.15); color: #bdc3c7; border: 1px solid rgba(52, 73, 94, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🎯 256</span>')
-                        if exp.get('gozack'): badges.append('<span style="background-color: rgba(230, 126, 34, 0.15); color: #f39c12; border: 1px solid rgba(230, 126, 34, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">📦 고쨱</span>')
-                        if exp.get('hongingi'): badges.append('<span style="background-color: rgba(192, 41, 43, 0.15); color: #e74c3c; border: 1px solid rgba(192, 41, 43, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🐜 홍인기</span>')
-                        if exp.get('ap_inv'): badges.append('<span style="background-color: rgba(41, 128, 185, 0.15); color: #3498db; border: 1px solid rgba(41, 128, 185, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🚀 AP</span>')
-                        if exp.get('katch'): badges.append('<span style="background-color: rgba(26, 188, 156, 0.15); color: #1abc9c; border: 1px solid rgba(26, 188, 156, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🎯 캐치</span>')
-                        if exp.get('fvg'): badges.append('<span style="background-color: rgba(142, 68, 173, 0.15); color: #9b59b6; border: 1px solid rgba(142, 68, 173, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">💎 FVG</span>')
-                        if exp.get('turtle'): badges.append('<span style="background-color: rgba(39, 174, 96, 0.15); color: #2ecc71; border: 1px solid rgba(39, 174, 96, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🐢 터틀</span>')
-                        if aurora.get('signal'): badges.append('<span style="background-color: rgba(241, 196, 15, 0.15); color: #f1c40f; border: 1px solid rgba(241, 196, 15, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">✨ 오로라</span>')
-                        if futureon.get('isle') or futureon.get('shintae') or futureon.get('juns'): badges.append('<span style="background-color: rgba(230, 126, 34, 0.15); color: #e67e22; border: 1px solid rgba(230, 126, 34, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🏆 퓨처온</span>')
-                        if sm.get('accumulation'): badges.append('<span style="background-color: rgba(22, 160, 133, 0.15); color: #1abc9c; border: 1px solid rgba(22, 160, 133, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">🐳 매집</span>')
-                        if sm.get('money_flow'): badges.append('<span style="background-color: rgba(243, 156, 18, 0.15); color: #f1c40f; border: 1px solid rgba(243, 156, 18, 0.3); padding: 2px 4px; border-radius: 4px; font-size: 0.72em; font-weight: bold; margin-right: 2px;">💵 유입</span>')
-                        
-                        badges_str = "".join(badges) if badges else '<span style="color: #8b949e; font-size: 0.75em;">기본 지표 분석</span>'
-                        
-                        # Signal truncation
-                        signals_list = [s.strip() for s in row.get('signals', '').split(',') if s.strip()]
-                        signals_truncated = ", ".join(signals_list[:2])
-                        if len(signals_list) > 2:
-                            signals_truncated += "..."
-                            
-                        cards_html += f"""
-<div style="
-    background: linear-gradient(135deg, #1f222e 0%, #151821 100%);
-    border: 1px solid #30363d;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-">
-    <!-- Left Side: Ticker, Badges, Signals -->
-    <div style="flex: 1; min-width: 0; padding-right: 12px; text-align: left;">
-        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <span style="font-size: 1.1em; font-weight: bold; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{row['Name']}</span>
-            <span style="font-size: 0.78em; color: #8b949e; background-color: #2b303b; padding: 1px 6px; border-radius: 4px; font-weight: bold;">{row['symbol']}</span>
-            <span style="font-size: 0.75em; color: #f1c40f; font-weight: bold; background-color: rgba(241, 196, 15, 0.1); padding: 1px 5px; border-radius: 4px;">{row['score']}점</span>
-        </div>
-        
-        <!-- Expert Pills -->
-        <div style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; margin-bottom: 6px;">
-            {badges_str}
-        </div>
-        
-        <!-- Signal Snippet -->
-        <div style="font-size: 0.78em; color: #8b949e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px;">
-            💬 {signals_truncated}
-        </div>
-    </div>
-    
-    <!-- Right Side: Price, Change Rate, Action Badge -->
-    <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center; min-width: 95px;">
-        <div style="font-size: 1.1em; font-weight: bold; color: #ffffff;">{row['current_price']:,.0f}원</div>
-        <div style="font-size: 0.85em; font-weight: bold; color: {change_color}; margin-top: 2px; margin-bottom: 6px;">{change_sign}{change_rate:.1f}%</div>
-        
-        <!-- Action Badge -->
-        <div style="
-            background-color: {action_bg}; 
-            color: {action_text_color}; 
-            padding: 3px 8px; 
-            border-radius: 6px; 
-            font-size: 0.78em; 
-            font-weight: bold; 
-            text-align: center;
-            border: 1px solid {action_border};
-            box-shadow: 0 1px 4px {action_shadow};
-        ">
-            {action_desc}
-        </div>
-    </div>
-</div>
-"""
-                    st.markdown(cards_html, unsafe_allow_html=True)
-                    st.write("")
-                    
-                    options_list = []
-                    for idx, row in df_filtered.iterrows():
-                        action_icon = '🟢' if row['action'] == 'BUY' else ('🔴' if row['action'] == 'SELL' else '⚫')
-                        options_list.append(f"{action_icon} {row['Name']} ({row['symbol']}) | 등락률: {row['change_rate']:.1f}% | 점수: {row['score']}점")
-                    
-                    sb_key = f"sb_{current_market}_{selected_strategy_name}_{len(df_filtered)}"
-                    selected_opt = st.selectbox("📱 상세 차트 및 타점 분석을 보려면 아래에서 선택하세요", options_list, key=sb_key)
-                    
-                    if selected_opt:
-                        selected_idx = options_list.index(selected_opt)
-                        class FakeSelectionEvent:
-                            class FakeSelection:
-                                def __init__(self, idx):
-                                    self.rows = [idx]
-                            def __init__(self, idx):
-                                self.selection = self.FakeSelection(idx)
-                        selection_event = FakeSelectionEvent(selected_idx)
-                    else:
-                        selection_event = None
-                else:
-                    df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']].copy()
-                    df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
-                    df_display.columns = ['액션', '상태', '코드', '종목명', '점수', '현재가', '등락률', 'RSI', '상세신호']
-                    
-                    selection_event = st.dataframe(
-                        df_display,
-                        use_container_width=True,
-                        on_select="rerun",
-                        selection_mode="single-row",
-                        hide_index=True,
-                        key=f"table_{current_market}_{selected_strategy_name}_{len(df_display)}"
-                    )
+                df_display = df_filtered[['action', 'action_desc', 'symbol', 'Name', 'score', 'current_price', 'change_rate', 'rsi', 'signals']].copy()
+                df_display['action'] = df_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_display['action'])
+                df_display.columns = ['액션', '상태', '코드', '종목명', '점수', '현재가', '등락률', 'RSI', '상세신호']
+                
+                # 스타일링이 on_select와 충돌하여 React DOM 에러(removeChild)를 유발할 수 있으므로, 스타일 대신 순수 df를 넘기고 고유 키를 할당합니다.
+                selection_event = st.dataframe(
+                    df_display,
+                    use_container_width=True,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    hide_index=True,
+                    key=f"table_{current_market}_{selected_strategy_name}_{len(df_display)}"
+                )
 
                 # 단일 추가 버튼
                 if selection_event and hasattr(selection_event, 'selection') and selection_event.selection.rows:
@@ -1435,28 +1188,17 @@ SCORE: {row['score']}
                         for r in selected_data['futureon']['reasons']:
                             st.caption(f"• {r}")
                     else: st.write("⚪ 조건 미달")
-                
-                exp_cols4 = st.columns(2)
-                with exp_cols4[0]:
-                    st.write("**💎 SMC / ICT 기법 (Mensa)**")
-                    if selected_data.get('smc'):
-                        st.success(f"✅ **SMC 신호 감지!**")
-                        st.caption(f"• {selected_data['smc'].get('type')} 패턴 확인")
-                    else: st.write("⚪ 조건 미달")
 
                 # --- 일반 스윙 매매 가이드 렌더링 ---
                 st.markdown(render_general_scenario(selected_data), unsafe_allow_html=True)
 
                 # --- 돈깡 데이매매법 시나리오 렌더링 ---
                 st.markdown(render_donkkang_scenario(selected_data), unsafe_allow_html=True)
-                
-                # --- SMC/ICT 단기 스윙 시나리오 렌더링 ---
-                st.markdown(render_smc_scenario(selected_data), unsafe_allow_html=True)
                 st.write("")
 
                 col_chart, col_side = st.columns([2, 1])
                 with col_chart:
-                    display_detailed_chart(selected_symbol, current_market, height=400 if st.session_state.get('mobile_mode', False) else 700)
+                    display_detailed_chart(selected_symbol, current_market)
                 
                 with col_side:
                     st.metric("현재가", f"{selected_data['current_price']:,.0f}")
@@ -1651,109 +1393,21 @@ with tab_portfolio:
                 
                 # 데이터 그리드 (다중 선택 활성화)
                 st.write("**현재 현황** (아래 표에서 종목을 선택하여 복수 삭제가 가능합니다.)")
-                if st.session_state.get('mobile_mode', False):
-                    # Render portfolio stocks as beautiful cards (RASi style)
-                    st.markdown("##### 💼 보유 종목 현황")
-                    
-                    cards_html = ""
-                    for idx, row in df_m.iterrows():
-                        action = row.get('action', 'WAIT')
-                        action_desc = row.get('action_desc', '관망')
-                        
-                        if action == 'BUY':
-                            action_bg = 'rgba(255, 75, 75, 0.15)'
-                            action_text_color = '#ff4b4b'
-                            action_border = '#ff4b4b'
-                            action_shadow = 'rgba(255, 75, 75, 0.2)'
-                        elif action == 'SELL':
-                            action_bg = 'rgba(88, 166, 255, 0.15)'
-                            action_text_color = '#58a6ff'
-                            action_border = '#58a6ff'
-                            action_shadow = 'rgba(88, 166, 255, 0.2)'
-                        else:
-                            action_bg = 'rgba(139, 148, 158, 0.15)'
-                            action_text_color = '#8b949e'
-                            action_border = '#30363d'
-                            action_shadow = 'rgba(0, 0, 0, 0)'
-                            
-                        # Format Price & RSI
-                        price_val = row.get('current_price', 0)
-                        price_str = f"{price_val:,.0f}원" if price_val > 0 else "데이터 없음"
-                        rsi_val = row.get('rsi', 0.0)
-                        rsi_str = f"RSI: {rsi_val:.1f}" if rsi_val > 0 else "RSI: N/A"
-                        
-                        cards_html += f"""
-<div style="
-    background: linear-gradient(135deg, #1f222e 0%, #151821 100%);
-    border: 1px solid #30363d;
-    border-radius: 12px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-">
-    <div style="text-align: left; flex: 1;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 1.1em; font-weight: bold; color: #ffffff;">{row['name']}</span>
-            <span style="font-size: 0.78em; color: #8b949e; background-color: #2b303b; padding: 1px 6px; border-radius: 4px; font-weight: bold;">{row['symbol']}</span>
-        </div>
-        <div style="font-size: 0.8em; color: #8b949e; margin-top: 6px;">
-            {rsi_str} | 점수: {row.get('score', 0)}점
-        </div>
-    </div>
-    <div style="display: flex; flex-direction: column; align-items: flex-end; min-width: 95px;">
-        <div style="font-size: 1.1em; font-weight: bold; color: #ffffff;">{price_str}</div>
-        <div style="
-            background-color: {action_bg}; 
-            color: {action_text_color}; 
-            padding: 3px 8px; 
-            border-radius: 6px; 
-            font-size: 0.78em; 
-            font-weight: bold; 
-            text-align: center;
-            border: 1px solid {action_border};
-            margin-top: 6px;
-        ">
-            {action_desc}
-        </div>
-    </div>
-</div>
-"""
-                    st.markdown(cards_html, unsafe_allow_html=True)
-                    st.write("")
-                    
-                    options_list = []
-                    for idx, row in df_m.iterrows():
-                        action_icon = '🟢' if row['action'] == 'BUY' else ('🔴' if row['action'] == 'SELL' else '⚫')
-                        options_list.append(f"{action_icon} {row['name']} ({row['symbol']}) | RSI: {row['rsi']:.1f}")
-                    
-                    ms_key = f"ms_ptr_{m_key}_{len(df_m)}"
-                    selected_opts = st.multiselect("📱 관리(선택/삭제)할 종목 선택", options_list, key=ms_key)
-                    
-                    selected_idx = [options_list.index(opt) for opt in selected_opts]
-                    class FakeSelectionEvent:
-                        class FakeSelection:
-                            def __init__(self, idxs):
-                                self.rows = idxs
-                        def __init__(self, idxs):
-                            self.selection = self.FakeSelection(idxs)
-                    selection = FakeSelectionEvent(selected_idx)
-                else:
-                    display_cols = ['action', 'action_desc', 'name', 'symbol', 'score', 'current_price', 'rsi', 'signals']
-                    df_m_display = df_m[display_cols].copy()
-                    if not df_m_display.empty and 'action' in df_m_display.columns:
-                        df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
-                    
-                    selection = st.dataframe(
-                        df_m_display,
-                        use_container_width=True,
-                        on_select="rerun",
-                        selection_mode="multi-row",
-                        hide_index=True,
-                        key=f"ptr_table_{m_key}_{len(df_m)}"
-                    )
+                display_cols = ['action', 'action_desc', 'name', 'symbol', 'score', 'current_price', 'rsi', 'signals']
+                
+                # [개선] 셀 배경색(styling)은 Streamlit 버그(removeChild)를 유발하므로, 이모지를 활용해 직관적인 색상을 부여합니다.
+                df_m_display = df_m[display_cols].copy()
+                if not df_m_display.empty and 'action' in df_m_display.columns:
+                    df_m_display['action'] = df_m_display['action'].map({'BUY': '🟢 BUY', 'SELL': '🔴 SELL', 'WAIT': '⚫ WAIT'}).fillna(df_m_display['action'])
+
+                selection = st.dataframe(
+                    df_m_display,
+                    use_container_width=True,
+                    on_select="rerun",
+                    selection_mode="multi-row",
+                    hide_index=True,
+                    key=f"ptr_table_{m_key}_{len(df_m)}"
+                )
                 
                 # [개선] 삭제 UI를 더 명확하게 표시
                 st.markdown("---")
@@ -1831,8 +1485,9 @@ with tab_portfolio:
                                     st.caption(f"• {r}")
                             else: st.write("⚪ 조건 미달")
 
+                        col_chart, col_side = st.columns([2, 1])
                         with col_chart:
-                            display_detailed_chart(selected_symbol, m_key, height=400 if st.session_state.get('mobile_mode', False) else 700)
+                            display_detailed_chart(selected_symbol, m_key)
                         
                         with col_side:
                             st.metric("현재가", f"{selected_data['current_price']:,.0f}")
@@ -1996,20 +1651,11 @@ with tab_dict:
         else:
             st.info(f"📅 {selected_date}에 기록된 쉐도잉 데이터가 없습니다. 아래 '실시간 데이터 반영' 버튼으로 수집하거나 행을 추가하여 직접 작성해 주세요.")
             
-        # 세션 상태 초기화 (날짜별로 유니크하게 관리)
-        sel_key = f"sel_shadow_stock_{selected_date}"
-        if sel_key not in st.session_state:
-            st.session_state[sel_key] = None
-            
         # 데이터프레임 빌드
         if not table_rows:
-            df_display = pd.DataFrame(columns=["선택", "번호", "업종", "종목코드", "종목명", "등락률", "거래대금(억)", "종가", "상승이유", "키워드"])
+            df_display = pd.DataFrame(columns=["번호", "업종", "종목코드", "종목명", "등락률", "거래대금(억)", "종가", "상승이유", "키워드"])
         else:
             df_display = pd.DataFrame(table_rows)
-            df_display.insert(0, "선택", False)
-            curr_sel = st.session_state[sel_key]
-            if curr_sel is not None and 0 <= curr_sel < len(df_display):
-                df_display.loc[curr_sel, "선택"] = True
             
         # 데이터 에디터 렌더링
         st.markdown("##### 📝 급등주 & 거래대금 쉐도잉 편집 테이블")
@@ -2018,7 +1664,6 @@ with tab_dict:
             use_container_width=True,
             num_rows="dynamic",
             column_config={
-                "선택": st.column_config.CheckboxColumn(width="small"),
                 "번호": st.column_config.NumberColumn(disabled=True),
                 "업종": st.column_config.TextColumn(width="medium"),
                 "종목코드": st.column_config.TextColumn(width="medium"),
@@ -2031,134 +1676,6 @@ with tab_dict:
             },
             key=f"shadow_editor_{selected_date}"
         )
-        
-        # [신규] 쉐도잉 편집 테이블 선택 체크박스 감지 및 단일 선택(라디오 단추화) 로직
-        if edited_df is not None and not edited_df.empty and "선택" in edited_df.columns:
-            currently_true_indices = edited_df[edited_df["선택"] == True].index.tolist()
-            previous_sel = st.session_state[sel_key]
-            
-            new_sel = None
-            if len(currently_true_indices) > 0:
-                if previous_sel in currently_true_indices:
-                    if len(currently_true_indices) > 1:
-                        # 이미 선택된게 있는 상태에서 새것이 선택된 경우
-                        new_candidates = [idx for idx in currently_true_indices if idx != previous_sel]
-                        new_sel = new_candidates[0]
-                    else:
-                        new_sel = previous_sel
-                else:
-                    # 새로운 것이 하나만 체크된 경우
-                    new_sel = currently_true_indices[0]
-            else:
-                new_sel = None
-                
-            if new_sel != previous_sel:
-                st.session_state[sel_key] = new_sel
-                st.rerun()
-                
-        # [신규] 선택 종목 분석 연동
-        selected_stock_data = None
-        curr_sel = st.session_state[sel_key]
-        if curr_sel is not None and curr_sel < len(df_display):
-            row = df_display.iloc[curr_sel]
-            symbol = row.get("종목코드", "")
-            name = row.get("종목명", "")
-            
-            if name:
-                # 종목 코드가 없는 경우 역추적
-                if not symbol or pd.isna(symbol):
-                    found_code, found_market = scanner.find_symbol_by_name(name)
-                    if found_code:
-                        symbol = found_code
-                        market = found_market
-                    else:
-                        symbol = None
-                        market = 'KR'
-                else:
-                    symbol = str(symbol).strip().upper()
-                    # 시장 자동 판별
-                    market = 'KR'
-                    if '-' in symbol: market = 'COIN'
-                    elif any(c.isalpha() for c in symbol): market = 'US'
-                    
-                if symbol:
-                    with st.spinner(f"'{name}' ({symbol}) 상세 분석 및 차트를 불러오는 중..."):
-                        analysis = scanner.analyze_stock(symbol, market)
-                        if analysis:
-                            analysis['Name'] = name
-                            analysis['market_type'] = market
-                            selected_stock_data = analysis
-                        else:
-                            st.error(f"'{name}' ({symbol}) 시세 데이터를 불러오지 못했습니다. 데이터가 없거나 코드 형식을 확인해주세요.")
-                else:
-                    st.warning(f"'{name}' 종목의 종목코드를 찾을 수 없습니다. 종목코드 열에 올바른 코드를 직접 입력해주세요.")
-                        
-        if selected_stock_data:
-            st.markdown("---")
-            st.markdown(f"### 📈 {selected_stock_data['Name']} ({selected_stock_data['symbol']}) 상세 분석 (쉐도잉 연동)")
-            
-            # 전문가 기법 해당 여부 확인 섹션 (강조)
-            st.markdown("#### 🧐 전문가 기법 및 수급 확인")
-            exp_cols1 = st.columns(2)
-            with exp_cols1[0]:
-                st.write("**🥣 주식단테 (밥그릇/2/5/6)**")
-                if "밥그릇" in str(selected_stock_data['signals']): st.success("✅ **밥그릇 3번 자리 감지!**")
-                elif "256" in str(selected_stock_data['signals']): st.info("✅ **256 타점 진입!**")
-                else: st.write("⚪ 조건 미달")
-            with exp_cols1[1]:
-                st.write("**📦 고쨱짹 (박스돌파)**")
-                if "고쨱짹" in str(selected_stock_data['signals']): st.success("✅ **박스권 돌파 + 수급 대폭발!**")
-                else: st.write("⚪ 조건 미달")
-                
-            exp_cols2 = st.columns(2)
-            with exp_cols2[0]:
-                st.write("**🐜 대왕개미 홍인기 (대장주/끼)**")
-                if "홍인기" in str(selected_stock_data['signals']): st.success("✅ **주도주 장대양봉 발생!**")
-                elif "끼" in str(selected_stock_data['signals']): st.info("✅ **과거 급등 '끼' 보유!**")
-                else: st.write("⚪ 조건 미달")
-            with exp_cols2[1]:
-                st.write("**🚀 AP투자연구소 김용재**")
-                if "AP-김용재" in str(selected_stock_data['signals']): st.success("✅ **시가/고가 돌파 및 수급 집중!**")
-                else: st.write("⚪ 조건 미달")
-                
-            exp_cols3 = st.columns(2)
-            with exp_cols3[0]:
-                st.write("**💎 SMC / ICT 기법 (Mensa)**")
-                if selected_stock_data.get('smc'):
-                    st.success(f"✅ **SMC 신호 감지!**")
-                    st.caption(f"• {selected_stock_data['smc'].get('type')} 패턴 확인")
-                else: st.write("⚪ 조건 미달")
-                
-            # 일반 및 돈깡 시나리오 가이드
-            st.markdown(render_general_scenario(selected_stock_data), unsafe_allow_html=True)
-            st.markdown(render_donkkang_scenario(selected_stock_data), unsafe_allow_html=True)
-            st.markdown(render_smc_scenario(selected_stock_data), unsafe_allow_html=True)
-            
-            # 차트 및 감지 신호 메트릭
-            col_chart, col_side = st.columns([2, 1])
-            with col_chart:
-                display_detailed_chart(selected_stock_data['symbol'], selected_stock_data['market_type'], height=400 if st.session_state.get('mobile_mode', False) else 700)
-            with col_side:
-                st.metric("현재가", f"{selected_stock_data['current_price']:,.0f}")
-                st.metric("종합 점수", f"{selected_stock_data['score']}점")
-                st.markdown("##### 📡 실시간 감지 신호")
-                for s in str(selected_stock_data['signals']).split(','):
-                    if s.strip(): st.write(f"- {s.strip()}")
-                
-                st.markdown("##### 💡 전문가 의견")
-                if selected_stock_data['action'] == 'BUY': st.success(f"**{selected_stock_data['action_desc']}**")
-                else: st.info(f"**{selected_stock_data['action_desc']}**")
-                
-                if st.button("⭐ 포트폴리오에 추가", key="add_portfolio_shadow_btn"):
-                    p_data = load_portfolio()
-                    m_key = selected_stock_data['market_type']
-                    if selected_stock_data['symbol'] not in p_data[m_key]:
-                        p_data[m_key].append(selected_stock_data['symbol'])
-                        save_portfolio(p_data)
-                        st.success("추가되었습니다!")
-                        st.rerun()
-                    else: st.warning("이미 등록된 종목입니다.")
-            st.markdown("---")
         
         col_db1, col_db2 = st.columns(2)
         with col_db1:
@@ -2549,262 +2066,153 @@ with tab_dict:
                     st.session_state.cal_year += 1
                 st.rerun()
                 
-        # 모바일 최적화 모드(Compact)가 켜져 있는 경우
-        if st.session_state.get("mobile_mode", False):
-            st.info("📱 모바일 모드: 화면 폭에 최적화된 세로형 아코디언 리스트로 캘린더가 표시됩니다.")
+        cols_day = st.columns(5)
+        weekdays_5 = ["월", "화", "수", "목", "금"]
+        for idx, w_name in enumerate(weekdays_5):
+            cols_day[idx].markdown(f"<div class='weekday-header' style='color: #ffffff; text-shadow: none;'>{w_name}</div>", unsafe_allow_html=True)
             
-            cal = calendar.Calendar(firstweekday=6)
-            weeks = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
+        cal = calendar.Calendar(firstweekday=6)
+        weeks = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
+        
+        def get_pastel_style(theme_name):
+            colors = [
+                ("rgba(56, 139, 253, 0.25)", "#58a6ff"),
+                ("rgba(46, 160, 67, 0.25)", "#57ab5a"),
+                ("rgba(248, 81, 73, 0.25)", "#ff7b72"),
+                ("rgba(210, 153, 34, 0.25)", "#d29922"),
+                ("rgba(187, 128, 250, 0.25)", "#bc8cff")
+            ]
+            import hashlib
+            idx = int(hashlib.md5(theme_name.encode('utf-8')).hexdigest(), 16) % len(colors)
+            return colors[idx]
+
+        for w_idx, week in enumerate(weeks):
+            mon_val = week[1]
+            tue_val = week[2]
+            wed_val = week[3]
+            thu_val = week[4]
+            fri_val = week[5]
             
-            def get_pastel_style(theme_name):
-                colors = [
-                    ("rgba(56, 139, 253, 0.25)", "#58a6ff"),
-                    ("rgba(46, 160, 67, 0.25)", "#57ab5a"),
-                    ("rgba(248, 81, 73, 0.25)", "#ff7b72"),
-                    ("rgba(210, 153, 34, 0.25)", "#d29922"),
-                    ("rgba(187, 128, 250, 0.25)", "#bc8cff")
-                ]
-                import hashlib
-                idx = int(hashlib.md5(theme_name.encode('utf-8')).hexdigest(), 16) % len(colors)
-                return colors[idx]
+            day_vals = [mon_val, tue_val, wed_val, thu_val, fri_val]
+            cols = st.columns(5)
             
-            # 주차별로 그룹화하여 표시
-            for w_idx, week in enumerate(weeks):
-                valid_days = [d for d in week[1:6] if d > 0] # 월~금
-                if not valid_days:
-                    continue
+            for idx, day in enumerate(day_vals):
+                if day == 0:
+                    cols[idx].write("")
+                else:
+                    date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{day:02d}"
+                    has_data = date_str in day_data
                     
-                start_day = valid_days[0]
-                end_day = valid_days[-1]
-                week_title = f"📅 {w_idx+1}주차 ({st.session_state.cal_month:02d}월 {start_day:02d}일 ~ {end_day:02d}일)"
-                
-                # 해당 주차에 데이터가 1개라도 있는 날짜가 있는지 체크
-                has_any_data = False
-                for d in valid_days:
-                    d_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{d:02d}"
-                    if d_str in day_data:
-                        has_any_data = True
-                        break
+                    table_rows_html = ""
+                    if has_data:
+                        day_records = day_data[date_str].get("records", [])
                         
-                is_expanded = has_any_data
-                
-                with st.expander(week_title, expanded=is_expanded):
-                    for d in valid_days:
-                        date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{d:02d}"
-                        has_data = date_str in day_data
-                        day_of_week = ["월", "화", "수", "목", "금"][week.index(d) - 1]
-                        
-                        col_date, col_btn = st.columns([3, 1])
-                        
-                        with col_date:
-                            selected_marker = " 🎯" if st.session_state.selected_date == date_str else ""
-                            st.markdown(f"**{d}일 ({day_of_week})**" + (" 🟢" if has_data else "") + selected_marker)
-                            if has_data:
-                                day_records = day_data[date_str].get("records", [])
-                                disp_items = []
-                                if day_records and "details" in day_records[0] and day_records[0]["details"]:
-                                    rec = day_records[0]
-                                    details = rec["details"]
-                                    
-                                    industry_groups = {}
-                                    for d_item in details:
-                                        ind = d_item.get("industry", "주도업종")
-                                        if ind not in industry_groups:
-                                            industry_groups[ind] = []
-                                        industry_groups[ind].append(d_item)
+                        disp_items = []
+                        if day_records and "details" in day_records[0] and day_records[0]["details"]:
+                            rec = day_records[0]
+                            details = rec["details"]
+                            
+                            industry_groups = {}
+                            for d in details:
+                                ind = d.get("industry", "주도업종")
+                                if ind not in industry_groups:
+                                    industry_groups[ind] = []
+                                industry_groups[ind].append(d)
+                                
+                            for ind_name, stocks_in_ind in industry_groups.items():
+                                avg_rate = round(sum(s.get("rate", 0) for s in stocks_in_ind) / len(stocks_in_ind), 2)
+                                total_amt = int(sum(s.get("amount", 0) for s in stocks_in_ind))
+                                disp_items.append((ind_name, avg_rate, total_amt))
+                                
+                            disp_items = sorted(disp_items, key=lambda x: x[2], reverse=True)
+                        else:
+                            day_themes = day_data[date_str].get("themes", [])
+                            for t in day_themes:
+                                disp_items.append((t.get("theme"), t.get("average_rate", 10.0), t.get("cumulative_amount", 500)))
+                            for r in day_records:
+                                keywords = [k.strip() for k in r.get("keyword", "").split(",") if k.strip()]
+                                for k in keywords:
+                                    if k not in [item[0] for item in disp_items]:
+                                        disp_items.append((k, r.get("average_rate", 10.0), r.get("cumulative_amount", 500)))
                                         
-                                    for ind_name, stocks_in_ind in industry_groups.items():
-                                        avg_rate = round(sum(s.get("rate", 0) for s in stocks_in_ind) / len(stocks_in_ind), 2)
-                                        total_amt = int(sum(s.get("amount", 0) for s in stocks_in_ind))
-                                        disp_items.append((ind_name, avg_rate, total_amt))
-                                        
-                                    disp_items = sorted(disp_items, key=lambda x: x[2], reverse=True)
-                                else:
-                                    day_themes = day_data[date_str].get("themes", [])
-                                    for t in day_themes:
-                                        disp_items.append((t.get("theme"), t.get("average_rate", 10.0), t.get("cumulative_amount", 500)))
-                                        
-                                # 칩 형태로 테마 노출
-                                badges_html = ""
-                                for item_theme, rate, amt in disp_items[:3]:
-                                    bg_color, text_color = get_pastel_style(item_theme)
-                                    badges_html += f"""
+                        for item_theme, rate, amt in disp_items[:3]:
+                            bg_color, text_color = get_pastel_style(item_theme)
+                            row_html = f"""
+                            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <td style="padding: 2px 0;">
                                     <span style="
                                         background-color: {bg_color};
                                         color: {text_color};
-                                        padding: 2px 6px;
+                                        padding: 1px 4px;
                                         border-radius: 4px;
                                         font-weight: bold;
-                                        font-size: 0.78em;
+                                        font-size: 0.82em;
                                         display: inline-block;
-                                        margin-right: 4px;
-                                        margin-bottom: 4px;
-                                    ">{item_theme} (+{rate}%)</span>
-                                    """
-                                if badges_html:
-                                    st.markdown(badges_html, unsafe_allow_html=True)
-                            else:
-                                st.caption("기록 없음")
-                        
-                        with col_btn:
-                            if has_data:
-                                btn_type = "primary" if st.session_state.selected_date == date_str else "secondary"
-                                if st.button("🔎 분석", key=f"cal_btn_m_{date_str}_{w_idx}", use_container_width=True, type=btn_type):
-                                    st.session_state.selected_date = date_str
-                                    st.session_state.shadow_step_choice = step_options[0]
-                                    st.rerun()
-                            else:
-                                st.write("")
-                                
-                        st.markdown("<div style='margin: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05);'></div>", unsafe_allow_html=True)
-        else:
-            cols_day = st.columns(5)
-            weekdays_5 = ["월", "화", "수", "목", "금"]
-            for idx, w_name in enumerate(weekdays_5):
-                cols_day[idx].markdown(f"<div class='weekday-header' style='color: #ffffff; text-shadow: none;'>{w_name}</div>", unsafe_allow_html=True)
-                
-            cal = calendar.Calendar(firstweekday=6)
-            weeks = cal.monthdayscalendar(st.session_state.cal_year, st.session_state.cal_month)
-            
-            def get_pastel_style(theme_name):
-                colors = [
-                    ("rgba(56, 139, 253, 0.25)", "#58a6ff"),
-                    ("rgba(46, 160, 67, 0.25)", "#57ab5a"),
-                    ("rgba(248, 81, 73, 0.25)", "#ff7b72"),
-                    ("rgba(210, 153, 34, 0.25)", "#d29922"),
-                    ("rgba(187, 128, 250, 0.25)", "#bc8cff")
-                ]
-                import hashlib
-                idx = int(hashlib.md5(theme_name.encode('utf-8')).hexdigest(), 16) % len(colors)
-                return colors[idx]
-
-            for w_idx, week in enumerate(weeks):
-                mon_val = week[1]
-                tue_val = week[2]
-                wed_val = week[3]
-                thu_val = week[4]
-                fri_val = week[5]
-                
-                day_vals = [mon_val, tue_val, wed_val, thu_val, fri_val]
-                cols = st.columns(5)
-                
-                for idx, day in enumerate(day_vals):
-                    if day == 0:
-                        cols[idx].write("")
-                    else:
-                        date_str = f"{st.session_state.cal_year}-{st.session_state.cal_month:02d}-{day:02d}"
-                        has_data = date_str in day_data
-                        
-                        table_rows_html = ""
-                        if has_data:
-                            day_records = day_data[date_str].get("records", [])
+                                        max-width: 70px;
+                                        overflow: hidden;
+                                        text-overflow: ellipsis;
+                                        white-space: nowrap;
+                                    " title="{item_theme}">{item_theme}</span>
+                                </td>
+                                <td style="text-align: right; color: #ff7b72; font-weight: bold; font-size: 0.85em; padding: 2px 0;">{rate}%</td>
+                                <td style="text-align: right; color: #58a6ff; font-size: 0.8em; padding: 2px 2px 2px 0;">{amt}억</td>
+                            </tr>
+                            """
+                            table_rows_html += row_html.replace("\n", " ")
                             
-                            disp_items = []
-                            if day_records and "details" in day_records[0] and day_records[0]["details"]:
-                                rec = day_records[0]
-                                details = rec["details"]
-                                
-                                industry_groups = {}
-                                for d in details:
-                                    ind = d.get("industry", "주도업종")
-                                    if ind not in industry_groups:
-                                        industry_groups[ind] = []
-                                    industry_groups[ind].append(d)
-                                    
-                                for ind_name, stocks_in_ind in industry_groups.items():
-                                    avg_rate = round(sum(s.get("rate", 0) for s in stocks_in_ind) / len(stocks_in_ind), 2)
-                                    total_amt = int(sum(s.get("amount", 0) for s in stocks_in_ind))
-                                    disp_items.append((ind_name, avg_rate, total_amt))
-                                    
-                                disp_items = sorted(disp_items, key=lambda x: x[2], reverse=True)
-                            else:
-                                day_themes = day_data[date_str].get("themes", [])
-                                for t in day_themes:
-                                    disp_items.append((t.get("theme"), t.get("average_rate", 10.0), t.get("cumulative_amount", 500)))
-                                for r in day_records:
-                                    keywords = [k.strip() for k in r.get("keyword", "").split(",") if k.strip()]
-                                    for k in keywords:
-                                        if k not in [item[0] for item in disp_items]:
-                                            disp_items.append((k, r.get("average_rate", 10.0), r.get("cumulative_amount", 500)))
-                                            
-                            for item_theme, rate, amt in disp_items[:3]:
-                                bg_color, text_color = get_pastel_style(item_theme)
-                                row_html = f"""
-                                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                    <td style="padding: 2px 0;">
-                                        <span style="
-                                            background-color: {bg_color};
-                                            color: {text_color};
-                                            padding: 1px 4px;
-                                            border-radius: 4px;
-                                            font-weight: bold;
-                                            font-size: 0.82em;
-                                            display: inline-block;
-                                            max-width: 70px;
-                                            overflow: hidden;
-                                            text-overflow: ellipsis;
-                                            white-space: nowrap;
-                                        " title="{item_theme}">{item_theme}</span>
-                                    </td>
-                                    <td style="text-align: right; color: #ff7b72; font-weight: bold; font-size: 0.85em; padding: 2px 0;">{rate}%</td>
-                                    <td style="text-align: right; color: #58a6ff; font-size: 0.8em; padding: 2px 2px 2px 0;">{amt}억</td>
-                                </tr>
-                                """
-                                table_rows_html += row_html.replace("\n", " ")
-                                
-                        is_selected = st.session_state.selected_date == date_str
-                        card_border = "2px solid #58a6ff" if is_selected else ("1px solid #38edf9" if has_data else "1px solid rgba(255,255,255,0.15)")
-                        card_bg = "rgba(88, 166, 255, 0.08)" if is_selected else ("rgba(255,255,255,0.04)" if has_data else "transparent")
-                        
-                        card_html = f"""
-                        <div style="
-                            background-color: {card_bg};
-                            border: {card_border};
-                            border-radius: 8px;
-                            padding: 8px 6px;
-                            height: 140px;
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: flex-start;
-                            box-sizing: border-box;
-                            margin-bottom: 4px;
-                            position: relative;
-                        ">
-                            <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px; margin-bottom: 4px;">
-                                <span style="font-weight: bold; font-size: 1.05em; color: {'#58a6ff' if is_selected else '#ffffff'};">{day}</span>
-                                {"<span style='color: #57ab5a; font-size: 0.8em; font-weight: bold;'>●</span>" if has_data else ""}
-                            </div>
-                            <div style="flex-grow: 1; overflow: hidden; width: 100%;">
-                        """
-                        
-                        if has_data and table_rows_html:
-                            card_html += f"""
-                                <table style="width: 100%; font-size: 0.75em; border-collapse: collapse; line-height: 1.2;">
-                                    <tbody>
-                                        {table_rows_html}
-                                    </tbody>
-                                </table>
-                            """
-                        else:
-                            card_html += """
-                                <div style="display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255,255,255,0.3); font-size: 0.8em;">
-                                    기록 없음
-                                </div>
-                            """
-                        card_html += """
-                            </div>
+                    is_selected = st.session_state.selected_date == date_str
+                    card_border = "2px solid #58a6ff" if is_selected else ("1px solid #38edf9" if has_data else "1px solid rgba(255,255,255,0.15)")
+                    card_bg = "rgba(88, 166, 255, 0.08)" if is_selected else ("rgba(255,255,255,0.04)" if has_data else "transparent")
+                    
+                    card_html = f"""
+                    <div style="
+                        background-color: {card_bg};
+                        border: {card_border};
+                        border-radius: 8px;
+                        padding: 8px 6px;
+                        height: 140px;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: flex-start;
+                        box-sizing: border-box;
+                        margin-bottom: 4px;
+                        position: relative;
+                    ">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 2px; margin-bottom: 4px;">
+                            <span style="font-weight: bold; font-size: 1.05em; color: {'#58a6ff' if is_selected else '#ffffff'};">{day}</span>
+                            {"<span style='color: #57ab5a; font-size: 0.8em; font-weight: bold;'>●</span>" if has_data else ""}
                         </div>
+                        <div style="flex-grow: 1; overflow: hidden; width: 100%;">
+                    """
+                    
+                    if has_data and table_rows_html:
+                        card_html += f"""
+                            <table style="width: 100%; font-size: 0.75em; border-collapse: collapse; line-height: 1.2;">
+                                <tbody>
+                                    {table_rows_html}
+                                </tbody>
+                            </table>
                         """
-                        
-                        flat_card_html = card_html.replace("\n", " ").strip()
-                        cols[idx].markdown(flat_card_html, unsafe_allow_html=True)
-                        
-                        btn_label = f"🔎 {day}일 분석"
-                        btn_type = "primary" if is_selected else "secondary"
-                        if cols[idx].button(btn_label, key=f"cal_btn_{date_str}_{w_idx}_{idx}", use_container_width=True, type=btn_type):
-                            st.session_state.selected_date = date_str
-                            st.session_state.shadow_step_choice = step_options[0]
-                            st.rerun()
+                    else:
+                        card_html += """
+                            <div style="display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255,255,255,0.3); font-size: 0.8em;">
+                                기록 없음
+                            </div>
+                        """
+                    card_html += """
+                        </div>
+                    </div>
+                    """
+                    
+                    flat_card_html = card_html.replace("\n", " ").strip()
+                    cols[idx].markdown(flat_card_html, unsafe_allow_html=True)
+                    
+                    btn_label = f"🔎 {day}일 분석"
+                    btn_type = "primary" if is_selected else "secondary"
+                    if cols[idx].button(btn_label, key=f"cal_btn_{date_str}_{w_idx}_{idx}", use_container_width=True, type=btn_type):
+                        st.session_state.selected_date = date_str
+                        st.session_state.shadow_step_choice = step_options[0]
+                        st.rerun()
 
         if st.session_state.selected_date:
             sel_date = st.session_state.selected_date

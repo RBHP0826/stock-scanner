@@ -1,56 +1,37 @@
 import pandas as pd
-import numpy as np
+from ta.momentum import RSIIndicator
+from ta.trend import SMAIndicator
+from ta.volume import OnBalanceVolumeIndicator, MFIIndicator
+from ta.volatility import BollingerBands
 
 def add_indicators(df):
     """이동평균선, RSI, OBV, MFI 등 지표를 DataFrame에 추가합니다."""
-    df['MA20'] = df['Close'].rolling(window=20).mean()
-    df['MA50'] = df['Close'].rolling(window=50).mean()
-    df['MA200'] = df['Close'].rolling(window=200).mean()
+    df['MA20'] = SMAIndicator(df['Close'], window=20).sma_indicator()
+    df['MA50'] = SMAIndicator(df['Close'], window=50).sma_indicator()
+    df['MA200'] = SMAIndicator(df['Close'], window=200).sma_indicator()
+    df['RSI'] = RSIIndicator(df['Close'], window=14).rsi()
     
-    # RSI 계산 (Wilder's Smoothing 방식과 동일하도록 ewm 사용)
-    delta = df['Close'].diff()
-    up = delta.clip(lower=0)
-    down = -delta.clip(upper=0)
-    ema_up = up.ewm(com=13, adjust=False).mean()
-    ema_down = down.ewm(com=13, adjust=False).mean()
-    rs = ema_up / ema_down.replace(0, 1e-10)
-    df['RSI'] = 100 - (100 / (1 + rs))
+    # 세력 수급 지표 추가 (ta라이브러리 사용)
+    df['OBV'] = OnBalanceVolumeIndicator(df['Close'], df['Volume']).on_balance_volume()
+    df['MFI'] = MFIIndicator(high=df['High'], low=df['Low'], close=df['Close'], volume=df['Volume'], window=14).money_flow_index()
     
-    # 세력 수급 지표 추가 (OBV)
-    direction = np.sign(df['Close'].diff()).fillna(0)
-    df['OBV'] = (direction * df['Volume']).cumsum()
-    
-    # MFI 계산
-    typical_price = (df['High'] + df['Low'] + df['Close']) / 3
-    money_flow = typical_price * df['Volume']
-    price_diff = typical_price.diff()
-    
-    pos_flow = money_flow.where(price_diff > 0, 0.0)
-    neg_flow = money_flow.where(price_diff < 0, 0.0)
-    
-    pos_mf14 = pos_flow.rolling(window=14).sum()
-    neg_mf14 = neg_flow.rolling(window=14).sum()
-    
-    mr = pos_mf14 / neg_mf14.replace(0, 1e-10)
-    df['MFI'] = 100 - (100 / (1 + mr))
-    
-    # 볼린저 밴드 추가
-    df['BB_Mid'] = df['Close'].rolling(window=20).mean()
-    std = df['Close'].rolling(window=20).std(ddof=0)
-    df['BB_High'] = df['BB_Mid'] + 2 * std
-    df['BB_Low'] = df['BB_Mid'] - 2 * std
+    # 볼린저 밴드 추가 (급등 전조용)
+    bb = BollingerBands(df['Close'], window=20, window_dev=2)
+    df['BB_High'] = bb.bollinger_hband()
+    df['BB_Low'] = bb.bollinger_lband()
+    df['BB_Mid'] = bb.bollinger_mavg()
     # 밴드폭 (Bandwidth) 계산
     df['BB_Width'] = (df['BB_High'] - df['BB_Low']) / df['BB_Mid']
     
     # 주식단테 장기 이평선 추가
-    df['MA112'] = df['Close'].rolling(window=112).mean()
-    df['MA224'] = df['Close'].rolling(window=224).mean()
+    df['MA112'] = SMAIndicator(df['Close'], window=112).sma_indicator()
+    df['MA224'] = SMAIndicator(df['Close'], window=224).sma_indicator()
     
     # 홍인기 매매법용 이평선
-    df['MA5'] = df['Close'].rolling(window=5).mean()
-    df['MA10'] = df['Close'].rolling(window=10).mean()
-    df['MA60'] = df['Close'].rolling(window=60).mean()
-    df['MA120'] = df['Close'].rolling(window=120).mean()
+    df['MA5'] = SMAIndicator(df['Close'], window=5).sma_indicator()
+    df['MA10'] = SMAIndicator(df['Close'], window=10).sma_indicator()
+    df['MA60'] = SMAIndicator(df['Close'], window=60).sma_indicator()
+    df['MA120'] = SMAIndicator(df['Close'], window=120).sma_indicator()
     
     # 오로라 검색기용 엔벨로프 (20, 20)
     df['Env_Mid'] = df['MA20']
