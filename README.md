@@ -1,2 +1,0 @@
-# stock-scanner
-stock trading
