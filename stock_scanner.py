@@ -46,8 +46,26 @@ class StockScanner:
                 df_krx['Code'] = df_krx['Symbol']
             return df_krx
         except Exception as e:
-            logger.error(f"FinanceDataReader 조회 실패. pykrx 예비 수단 가동: {e}", exc_info=True)
-            print(f"FinanceDataReader 조회 실패. pykrx 예비 수단 가동: {e}")
+            logger.error(f"FinanceDataReader 조회 실패. 로컬 캐시 조회 시작: {e}", exc_info=True)
+            print(f"FinanceDataReader 조회 실패. 로컬 캐시 조회 시작: {e}")
+            
+            # 로컬 캐시 파일 (krx_stock_listing_cache.csv) 확인
+            import os
+            cache_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'krx_stock_listing_cache.csv')
+            if os.path.exists(cache_path):
+                try:
+                    df_cache = pd.read_csv(cache_path, dtype={'Code': str, 'Symbol': str})
+                    if 'Code' not in df_cache.columns and 'Symbol' in df_cache.columns:
+                        df_cache['Code'] = df_cache['Symbol']
+                    if not df_cache.empty:
+                        print("로컬 캐시 데이터 로드 성공!")
+                        return df_cache
+                except Exception as cache_err:
+                    print(f"로컬 캐시 로드 실패: {cache_err}")
+            
+            # 캐시가 없거나 실패 시 pykrx 시도
+            logger.error("로컬 캐시가 없거나 실패하여 pykrx 예비 수단 가동")
+            print("로컬 캐시가 없거나 실패하여 pykrx 예비 수단 가동")
             try:
                 from pykrx import stock
                 today_dt = datetime.datetime.today()

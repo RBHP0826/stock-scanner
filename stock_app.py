@@ -782,21 +782,109 @@ def sync_realtime_shadowing_data(scanner=None):
     try:
         today_str = datetime.datetime.now().strftime("%Y-%m-%d")
         
-        # 1. KRX 전체 종목 목록 로드
-        df_krx = fdr.StockListing('KRX')
-        if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
-            df_krx['Code'] = df_krx['Symbol']
-            
-        # 2. KRX-DESC 로드해서 업종(Sector, Industry) 병합
+        # 1. KRX 전체 종목 목록 로드 & 업종(Sector, Industry) 병합 (로컬 캐시 및 네이버 금융 Fallback 지원)
+        df_merged = None
+        use_naver_fallback = False
+        
         try:
-            df_desc = fdr.StockListing('KRX-DESC')
-            df_desc = df_desc[['Code', 'Sector', 'Industry']]
-            df_merged = pd.merge(df_krx, df_desc, on='Code', how='left')
-        except Exception as e:
-            df_merged = df_krx.copy()
-            df_merged['Sector'] = '테마미분류'
-            df_merged['Industry'] = '테마미분류'
+            df_krx = fdr.StockListing('KRX')
+            if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
+                df_krx['Code'] = df_krx['Symbol']
+                
+            try:
+                df_desc = fdr.StockListing('KRX-DESC')
+                df_desc = df_desc[['Code', 'Sector', 'Industry']]
+                df_merged = pd.merge(df_krx, df_desc, on='Code', how='left')
+            except Exception as desc_e:
+                df_merged = df_krx.copy()
+                df_merged['Sector'] = '테마미분류'
+                df_merged['Industry'] = '테마미분류'
             
+            # 성공적으로 로드 완료 시 로컬 캐시 파일 갱신
+            try:
+                df_merged.to_csv('krx_stock_listing_cache.csv', index=False, encoding='utf-8-sig')
+            except Exception:
+                pass
+                
+        except Exception as krx_e:
+            # KRX API 장애 시 로컬 캐시 및 네이버 크롤링 우회(Fallback) 작동
+            import os
+            if os.path.exists('krx_stock_listing_cache.csv'):
+                try:
+                    df_merged = pd.read_csv('krx_stock_listing_cache.csv', dtype={'Code': str, 'Symbol': str})
+                    if 'Code' not in df_merged.columns and 'Symbol' in df_merged.columns:
+                        df_merged['Code'] = df_merged['Symbol']
+                    use_naver_fallback = True
+                except Exception:
+                    pass
+            
+            if df_merged is None:
+                df_merged = pd.DataFrame(columns=['Code', 'Name', 'Sector', 'Industry', 'Close', 'ChagesRatio', 'Amount'])
+                use_naver_fallback = True
+
+        # 네이버 금융 실시간 급등주 데이터를 통한 실시간 시세/등락률 매핑
+        if use_naver_fallback:
+            try:
+                import requests
+                from bs4 import BeautifulSoup
+                import re
+                
+                naver_stocks = []
+                for sosok in [0, 1]:
+                    url = f"https://finance.naver.com/sise/sise_rise.naver?sosok={sosok}"
+                    res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+                    if res.status_code != 200:
+                        continue
+                    soup = BeautifulSoup(res.text, 'html.parser')
+                    table = soup.find('table', {'class': 'type_2'})
+                    if not table:
+                        continue
+                    for row in table.find_all('tr'):
+                        tds = row.find_all('td')
+                        if len(tds) < 12:
+                            continue
+                        a_tag = tds[1].find('a')
+                        if not a_tag:
+                            continue
+                        name = a_tag.get_text(strip=True)
+                        href = a_tag.get('href', '')
+                        code_match = re.search(r'code=(\d+)', href)
+                        if not code_match:
+                            continue
+                        code = code_match.group(1)
+                        
+                        close_str = tds[2].get_text(strip=True).replace(',', '')
+                        rate_str = tds[4].get_text(strip=True).replace('%', '').replace('+', '').strip()
+                        vol_str = tds[5].get_text(strip=True).replace(',', '')
+                        
+                        try:
+                            close_val = int(close_str)
+                            rate_val = float(rate_str)
+                            vol_val = int(vol_str)
+                            amount_val = close_val * vol_val
+                        except ValueError:
+                            continue
+                            
+                        naver_stocks.append({
+                            'Code': code,
+                            'Name': name,
+                            'Close': close_val,
+                            'ChagesRatio': rate_val,
+                            'Amount': amount_val
+                        })
+                
+                if naver_stocks:
+                    df_naver = pd.DataFrame(naver_stocks)
+                    # 캐시 데이터프레임에서 종목 업종 매핑 정보 추출
+                    df_cache_info = df_merged[['Code', 'Sector', 'Industry']].drop_duplicates(subset=['Code'])
+                    df_final_fallback = pd.merge(df_naver, df_cache_info, on='Code', how='left')
+                    df_final_fallback['Sector'] = df_final_fallback['Sector'].fillna('테마미분류')
+                    df_final_fallback['Industry'] = df_final_fallback['Industry'].fillna('테마미분류')
+                    
+                    df_merged = df_final_fallback
+            except Exception:
+                pass
+                
         # 3. 데이터 타입 변환 및 결측치 처리
         df_merged['ChagesRatio'] = pd.to_numeric(df_merged['ChagesRatio'], errors='coerce').fillna(0.0)
         df_merged['Amount'] = pd.to_numeric(df_merged['Amount'], errors='coerce').fillna(0)
