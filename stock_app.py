@@ -731,7 +731,7 @@ with st.sidebar:
     
     st.info(f"💡 **스마트폰으로 편하게 보기:**\n{msg_desc}")
     
-    # 레이아웃을 이쁘게 배치
+    # - Layout 배치
     col_qr1, col_qr2 = st.columns([1, 1])
     with col_qr1:
         st.image(f"https://api.qrserver.com/v1/create-qr-code/?size=150x150&data={mobile_url}", width=120)
@@ -771,120 +771,253 @@ def save_shadowing_data(data):
         st.error(f"데이터 저장 실패: {e}")
         return False
 
-def sync_realtime_shadowing_data(scanner=None):
+def sync_realtime_shadowing_data(scanner=None, target_date=None):
     import datetime
     import random
     import time
     import FinanceDataReader as fdr
     import pandas as pd
     from utils.news_fetcher import fetch_latest_news_reason
+    import streamlit as st
     
     try:
         today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        if target_date is None:
+            target_date_str = today_str
+        else:
+            target_date_str = target_date
+            
+        is_today = (target_date_str == today_str)
         
         # 1. KRX 전체 종목 목록 로드 & 업종(Sector, Industry) 병합 (로컬 캐시 및 네이버 금융 Fallback 지원)
         df_merged = None
         use_naver_fallback = False
         
-        try:
-            df_krx = fdr.StockListing('KRX')
-            if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
-                df_krx['Code'] = df_krx['Symbol']
-                
+        if is_today:
             try:
-                df_desc = fdr.StockListing('KRX-DESC')
-                df_desc = df_desc[['Code', 'Sector', 'Industry']]
-                df_merged = pd.merge(df_krx, df_desc, on='Code', how='left')
-            except Exception as desc_e:
-                df_merged = df_krx.copy()
-                df_merged['Sector'] = '테마미분류'
-                df_merged['Industry'] = '테마미분류'
-            
-            # 성공적으로 로드 완료 시 로컬 캐시 파일 갱신
-            try:
-                df_merged.to_csv('krx_stock_listing_cache.csv', index=False, encoding='utf-8-sig')
-            except Exception:
-                pass
-                
-        except Exception as krx_e:
-            # KRX API 장애 시 로컬 캐시 및 네이버 크롤링 우회(Fallback) 작동
-            import os
-            if os.path.exists('krx_stock_listing_cache.csv'):
+                df_krx = fdr.StockListing('KRX')
+                if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
+                    df_krx['Code'] = df_krx['Symbol']
+                    
                 try:
-                    df_merged = pd.read_csv('krx_stock_listing_cache.csv', dtype={'Code': str, 'Symbol': str})
-                    if 'Code' not in df_merged.columns and 'Symbol' in df_merged.columns:
-                        df_merged['Code'] = df_merged['Symbol']
-                    use_naver_fallback = True
+                    df_desc = fdr.StockListing('KRX-DESC')
+                    df_desc = df_desc[['Code', 'Sector', 'Industry']]
+                    df_merged = pd.merge(df_krx, df_desc, on='Code', how='left')
+                except Exception as desc_e:
+                    df_merged = df_krx.copy()
+                    df_merged['Sector'] = '테마미분류'
+                    df_merged['Industry'] = '테마미분류'
+                
+                # 성공적으로 로드 완료 시 로컬 캐시 파일 갱신
+                try:
+                    df_merged.to_csv('krx_stock_listing_cache.csv', index=False, encoding='utf-8-sig')
                 except Exception:
                     pass
-            
-            if df_merged is None:
-                df_merged = pd.DataFrame(columns=['Code', 'Name', 'Sector', 'Industry', 'Close', 'ChagesRatio', 'Amount'])
-                use_naver_fallback = True
-
-        # 네이버 금융 실시간 급등주 데이터를 통한 실시간 시세/등락률 매핑
-        if use_naver_fallback:
-            try:
-                import requests
-                from bs4 import BeautifulSoup
-                import re
+                    
+            except Exception as krx_e:
+                # KRX API 장애 시 로컬 캐시 및 네이버 크롤링 우회(Fallback) 작동
+                import os
+                if os.path.exists('krx_stock_listing_cache.csv'):
+                    try:
+                        df_merged = pd.read_csv('krx_stock_listing_cache.csv', dtype={'Code': str, 'Symbol': str})
+                        if 'Code' not in df_merged.columns and 'Symbol' in df_merged.columns:
+                            df_merged['Code'] = df_merged['Symbol']
+                        use_naver_fallback = True
+                    except Exception:
+                        pass
                 
-                naver_stocks = []
-                for sosok in [0, 1]:
-                    url = f"https://finance.naver.com/sise/sise_rise.naver?sosok={sosok}"
-                    res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-                    if res.status_code != 200:
-                        continue
-                    soup = BeautifulSoup(res.text, 'html.parser')
-                    table = soup.find('table', {'class': 'type_2'})
-                    if not table:
-                        continue
-                    for row in table.find_all('tr'):
-                        tds = row.find_all('td')
-                        if len(tds) < 12:
+                if df_merged is None:
+                    df_merged = pd.DataFrame(columns=['Code', 'Name', 'Sector', 'Industry', 'Close', 'ChagesRatio', 'Amount'])
+                    use_naver_fallback = True
+
+            # 네이버 금융 실시간 급등주 데이터를 통한 실시간 시세/등락률 매핑
+            if use_naver_fallback:
+                try:
+                    import requests
+                    from bs4 import BeautifulSoup
+                    import re
+                    
+                    naver_stocks = []
+                    for sosok in [0, 1]:
+                        url = f"https://finance.naver.com/sise/sise_rise.naver?sosok={sosok}"
+                        res = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+                        if res.status_code != 200:
                             continue
-                        a_tag = tds[1].find('a')
-                        if not a_tag:
+                        soup = BeautifulSoup(res.text, 'html.parser')
+                        table = soup.find('table', {'class': 'type_2'})
+                        if not table:
                             continue
-                        name = a_tag.get_text(strip=True)
-                        href = a_tag.get('href', '')
-                        code_match = re.search(r'code=(\d+)', href)
-                        if not code_match:
-                            continue
-                        code = code_match.group(1)
+                        for row in table.find_all('tr'):
+                            tds = row.find_all('td')
+                            if len(tds) < 12:
+                                continue
+                            a_tag = tds[1].find('a')
+                            if not a_tag:
+                                continue
+                            name = a_tag.get_text(strip=True)
+                            href = a_tag.get('href', '')
+                            code_match = re.search(r'code=(\d+)', href)
+                            if not code_match:
+                                continue
+                            code = code_match.group(1)
+                            
+                            close_str = tds[2].get_text(strip=True).replace(',', '')
+                            rate_str = tds[4].get_text(strip=True).replace('%', '').replace('+', '').strip()
+                            vol_str = tds[5].get_text(strip=True).replace(',', '')
+                            
+                            try:
+                                close_val = int(close_str)
+                                rate_val = float(rate_str)
+                                vol_val = int(vol_str)
+                                amount_val = close_val * vol_val
+                            except ValueError:
+                                continue
+                                
+                            naver_stocks.append({
+                                'Code': code,
+                                'Name': name,
+                                'Close': close_val,
+                                'ChagesRatio': rate_val,
+                                'Amount': amount_val
+                            })
+                    
+                    if naver_stocks:
+                        df_naver = pd.DataFrame(naver_stocks)
+                        # 캐시 데이터프레임에서 종목 업종 매핑 정보 추출
+                        df_cache_info = df_merged[['Code', 'Sector', 'Industry']].drop_duplicates(subset=['Code'])
+                        df_final_fallback = pd.merge(df_naver, df_cache_info, on='Code', how='left')
+                        df_final_fallback['Sector'] = df_final_fallback['Sector'].fillna('테마미분류')
+                        df_final_fallback['Industry'] = df_final_fallback['Industry'].fillna('테마미분류')
                         
-                        close_str = tds[2].get_text(strip=True).replace(',', '')
-                        rate_str = tds[4].get_text(strip=True).replace('%', '').replace('+', '').strip()
-                        vol_str = tds[5].get_text(strip=True).replace(',', '')
+                        df_merged = df_final_fallback
+                except Exception:
+                    pass
+        else:
+            # 과거 날짜 수집 로직 (yfinance 기반)
+            import os
+            import yfinance as yf
+            
+            st.info(f"📅 {target_date_str} (과거 날짜) 데이터를 수집하기 위해 yfinance 기반 백필을 시작합니다. (약 1~2분 소요)")
+            
+            df_krx = None
+            if os.path.exists('krx_stock_listing_cache.csv'):
+                try:
+                    df_krx = pd.read_csv('krx_stock_listing_cache.csv', dtype={'Code': str, 'Symbol': str})
+                    if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
+                        df_krx['Code'] = df_krx['Symbol']
+                except:
+                    pass
+            if df_krx is None or df_krx.empty:
+                try:
+                    df_krx = fdr.StockListing('KRX')
+                    if 'Code' not in df_krx.columns and 'Symbol' in df_krx.columns:
+                        df_krx['Code'] = df_krx['Symbol']
+                except Exception as e:
+                    return False, f"KRX 종목 목록을 가져오지 못했습니다: {e}"
+            
+            # 거래대금 상위 1000개 후보군 선정
+            if 'Amount' in df_krx.columns:
+                df_krx['Amount_temp'] = pd.to_numeric(df_krx['Amount'], errors='coerce').fillna(0)
+                df_candidates = df_krx.sort_values(by='Amount_temp', ascending=False).head(1000).copy()
+            else:
+                df_candidates = df_krx.head(1000).copy()
+                
+            # 포트폴리오 KR 종목 강제 포함
+            portfolio = load_portfolio()
+            portfolio_symbols = portfolio.get('KR', [])
+            
+            code_col = 'Code' if 'Code' in df_krx.columns else 'Symbol'
+            df_port = df_krx[df_krx[code_col].isin(portfolio_symbols)]
+            df_candidates = pd.concat([df_candidates, df_port]).drop_duplicates(subset=[code_col])
+            
+            # yfinance 티커로 변환
+            yf_tickers = []
+            symbol_to_meta = {}
+            for _, row in df_candidates.iterrows():
+                symbol = str(row[code_col])
+                name = str(row['Name'])
+                market = str(row.get('Market', ''))
+                
+                yf_symbol = f"{symbol}.KQ" if market == 'KOSDAQ' else f"{symbol}.KS"
+                yf_tickers.append(yf_symbol)
+                
+                sector_val = row.get('Sector', '테마미분류')
+                industry_val = row.get('Industry', '테마미분류')
+                symbol_to_meta[yf_symbol] = {
+                    'Code': symbol,
+                    'Name': name,
+                    'Sector': sector_val if not pd.isna(sector_val) else '테마미분류',
+                    'Industry': industry_val if not pd.isna(industry_val) else '테마미분류'
+                }
+                
+            # 다운로드 범위 설정 (전일 대비 구하기 위해 7일 전 ~ 다음날 2일까지 여유있게 가져옴)
+            target_dt = datetime.datetime.strptime(target_date_str, "%Y-%m-%d")
+            start_date_str = (target_dt - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
+            end_date_str = (target_dt + datetime.timedelta(days=2)).strftime("%Y-%m-%d")
+            
+            chunk_size = 100
+            total_chunks = (len(yf_tickers) - 1) // chunk_size + 1
+            
+            progress_bar = st.progress(0.0)
+            status_text = st.empty()
+            
+            past_stocks_data = []
+            
+            for chunk_idx in range(total_chunks):
+                start_i = chunk_idx * chunk_size
+                end_i = min(start_i + chunk_size, len(yf_tickers))
+                chunk = yf_tickers[start_i:end_i]
+                
+                status_text.text(f"⏳ 과거 시세 데이터 수집 중: {start_i} ~ {end_i} / {len(yf_tickers)} 종목 완료")
+                progress_bar.progress(chunk_idx / total_chunks)
+                
+                try:
+                    df_chunk = yf.download(chunk, start=start_date_str, end=end_date_str, group_by='ticker', threads=True, progress=False)
+                    
+                    for yf_symbol in chunk:
+                        if yf_symbol not in df_chunk.columns.levels[0]:
+                            continue
+                        df_sym = df_chunk[yf_symbol].dropna(subset=['Close'])
+                        if df_sym.empty:
+                            continue
                         
-                        try:
-                            close_val = int(close_str)
-                            rate_val = float(rate_str)
-                            vol_val = int(vol_str)
-                            amount_val = close_val * vol_val
-                        except ValueError:
+                        df_sym.index = pd.to_datetime(df_sym.index)
+                        target_rows = df_sym[df_sym.index.strftime("%Y-%m-%d") == target_date_str]
+                        if target_rows.empty:
                             continue
                             
-                        naver_stocks.append({
-                            'Code': code,
-                            'Name': name,
-                            'Close': close_val,
-                            'ChagesRatio': rate_val,
-                            'Amount': amount_val
-                        })
-                
-                if naver_stocks:
-                    df_naver = pd.DataFrame(naver_stocks)
-                    # 캐시 데이터프레임에서 종목 업종 매핑 정보 추출
-                    df_cache_info = df_merged[['Code', 'Sector', 'Industry']].drop_duplicates(subset=['Code'])
-                    df_final_fallback = pd.merge(df_naver, df_cache_info, on='Code', how='left')
-                    df_final_fallback['Sector'] = df_final_fallback['Sector'].fillna('테마미분류')
-                    df_final_fallback['Industry'] = df_final_fallback['Industry'].fillna('테마미분류')
+                        idx = df_sym.index.get_loc(target_rows.index[0])
+                        if idx > 0:
+                            prev_close = float(df_sym['Close'].iloc[idx-1])
+                            curr_close = float(df_sym['Close'].iloc[idx])
+                            curr_vol = float(df_sym['Volume'].iloc[idx])
+                            curr_amount = curr_close * curr_vol
+                            
+                            change_ratio = ((curr_close - prev_close) / prev_close) * 100.0
+                            
+                            meta = symbol_to_meta[yf_symbol]
+                            past_stocks_data.append({
+                                'Code': meta['Code'],
+                                'Name': meta['Name'],
+                                'Close': int(curr_close),
+                                'ChagesRatio': change_ratio,
+                                'Amount': curr_amount,
+                                'Sector': meta['Sector'],
+                                'Industry': meta['Industry']
+                            })
+                except Exception as e:
+                    pass
                     
-                    df_merged = df_final_fallback
-            except Exception:
-                pass
+                time.sleep(0.5) # Yahoo 차단 방지
                 
+            progress_bar.empty()
+            status_text.empty()
+            
+            if past_stocks_data:
+                df_merged = pd.DataFrame(past_stocks_data)
+            else:
+                df_merged = pd.DataFrame(columns=['Code', 'Name', 'Sector', 'Industry', 'Close', 'ChagesRatio', 'Amount'])
+
         # 3. 데이터 타입 변환 및 결측치 처리
         df_merged['ChagesRatio'] = pd.to_numeric(df_merged['ChagesRatio'], errors='coerce').fillna(0.0)
         df_merged['Amount'] = pd.to_numeric(df_merged['Amount'], errors='coerce').fillna(0)
@@ -946,7 +1079,7 @@ def sync_realtime_shadowing_data(scanner=None):
             })
             
         if not detected_stocks:
-            return False, "오늘 조건에 만족하는 실시간 급등주/주도주가 선별되지 않았습니다."
+            return False, f"{target_date_str} 조건에 만족하는 실시간 급등주/주도주가 선별되지 않았습니다."
             
         shadow_data = load_shadowing_data()
         
@@ -964,12 +1097,12 @@ def sync_realtime_shadowing_data(scanner=None):
         # 7. records 업데이트 (details 포함)
         record_idx = -1
         for idx, r in enumerate(shadow_data.get("records", [])):
-            if r.get("date") == today_str:
+            if r.get("date") == target_date_str:
                 record_idx = idx
                 break
                 
         record_payload = {
-            "date": today_str,
+            "date": target_date_str,
             "stocks": new_stocks_str,
             "reason": new_reasons_str,
             "keyword": new_keyword,
@@ -1015,8 +1148,8 @@ def sync_realtime_shadowing_data(scanner=None):
                         existing_stocks.append(s["name"])
                 shadow_data["dictionary"][dict_idx]["theme"] = display_theme_name
                 shadow_data["dictionary"][dict_idx]["stocks"] = ", ".join(existing_stocks)
-                shadow_data["dictionary"][dict_idx]["reason"] = f"({today_str} 업데이트) " + ind_reasons_str
-                shadow_data["dictionary"][dict_idx]["last_updated"] = today_str
+                shadow_data["dictionary"][dict_idx]["reason"] = f"({target_date_str} 업데이트) " + ind_reasons_str
+                shadow_data["dictionary"][dict_idx]["last_updated"] = target_date_str
                 shadow_data["dictionary"][dict_idx]["average_rate"] = ind_avg_rate
                 shadow_data["dictionary"][dict_idx]["cumulative_amount"] = ind_total_amount
             else:
@@ -1026,14 +1159,14 @@ def sync_realtime_shadowing_data(scanner=None):
                     "theme": display_theme_name,
                     "keyword": ind_name,
                     "stocks": ind_stocks_str,
-                    "reason": f"({today_str} 신규 등록) " + ind_reasons_str,
-                    "last_updated": today_str,
+                    "reason": f"({target_date_str} 신규 등록) " + ind_reasons_str,
+                    "last_updated": target_date_str,
                     "average_rate": ind_avg_rate,
                     "cumulative_amount": ind_total_amount
                 })
                 
         if save_shadowing_data(shadow_data):
-            return True, f"오늘 자 ({today_str}) 실시간 주도주 {len(detected_stocks)}개 종목 분석 및 테마 백과사전 동기화가 성공적으로 완료되었습니다!"
+            return True, f"{target_date_str} 자 실시간 주도주 {len(detected_stocks)}개 종목 분석 및 테마 백과사전 동기화가 성공적으로 완료되었습니다!"
         else:
             return False, "데이터베이스 저장에 실패했습니다."
             
@@ -2069,12 +2202,12 @@ with tab_dict:
                     st.warning("저장할 데이터가 테이블에 존재하지 않습니다.")
                     
         with col_db2:
-            if st.button("🔄 실시간 데이터 오늘 자 자동 수집 및 반영", type="secondary", use_container_width=True):
-                with st.spinner("실시간 한국 시장(KRX) 주도주 분석 및 백과사전 동기화 중..."):
-                    success, msg = sync_realtime_shadowing_data(scanner)
+            if st.button("🔄 실시간 데이터 선택된 날짜 자동 수집 및 반영", type="secondary", use_container_width=True):
+                with st.spinner(f"{selected_date} 한국 시장(KRX) 주도주 분석 및 백과사전 동기화 중..."):
+                    success, msg = sync_realtime_shadowing_data(scanner, target_date=selected_date)
                     if success:
                         st.success(msg)
-                        st.session_state.selected_date = datetime.datetime.now().strftime("%Y-%m-%d")
+                        st.session_state.selected_date = selected_date
                         st.rerun()
                     else:
                         st.error(msg)
